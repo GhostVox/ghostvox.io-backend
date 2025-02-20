@@ -71,7 +71,9 @@ The API is used to store and retrieve audio files and metadata for the Ghostvox 
   {
     "poll_id": 1,
     "option_id": 1,
-  "user_token": "1234567890"
+    "user_token": "1234567890",
+    "user_id": 1,
+
   }
   ```
   #### RESPONSE
@@ -79,8 +81,8 @@ The API is used to store and retrieve audio files and metadata for the Ghostvox 
   {
     "id": 1,
     "poll_id": 1,
-    "option_id": 1
-  "status_code": code
+    "option_id": 1,
+    "status_code": code
   }
   ```
 
@@ -131,6 +133,9 @@ The API is used to store and retrieve audio files and metadata for the Ghostvox 
     "id": 1,
     "name": "Brent Harrington",
     "email": "bobs@gmail.com",
-    "user_token": "1234567890"
+    "user_token": "1234567890",
+    "user_id": 1,
+
+
   }
   ```
