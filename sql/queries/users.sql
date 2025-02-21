@@ -1,0 +1,33 @@
+-- name: GetUsers :many
+Select
+    *
+FROM
+    users;
+
+-- name: GetUser :one
+SELECT
+    *
+FROM
+    users
+WHERE
+    email = $1;
+
+-- name: UpdateUser :one
+UPDATE
+    users
+SET
+    email = $1,
+    first_name = $2,
+    last_name = $3,
+    user_token = $4,
+    role = $5
+WHERE
+    id = $6 RETURNING *;
+
+-- name: CreateUser :one
+INSERT INTO
+    users (email, first_name, last_name, user_token, role)
+VALUES
+    ($1, $2, $3, $4, $5)
+RETURNING
+    *;
