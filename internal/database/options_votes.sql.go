@@ -36,7 +36,7 @@ WHERE
 
 type CountVotesByOptionAndPollIDParams struct {
 	PollID   uuid.UUID
-	PollID_2 int32
+	PollID_2 uuid.UUID
 }
 
 type CountVotesByOptionAndPollIDRow struct {
@@ -94,7 +94,7 @@ type GetVotesByOptionAndPollIDRow struct {
 	UserID      uuid.UUID
 	ID_2        uuid.UUID
 	Name        string
-	PollID_2    int32
+	PollID_2    uuid.UUID
 	Text        string
 	CreatedAt_2 time.Time
 	UpdatedAt   time.Time

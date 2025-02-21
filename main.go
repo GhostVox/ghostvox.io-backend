@@ -62,25 +62,34 @@ func main() {
 		port:     port,
 	}
 	rootHandler := handlers.NewRootHandler(cfg.db)
-
+	pollHandler := handlers.NewPollHandler(cfg.db)
 	mux := http.NewServeMux()
 	//  start attaching route handlers to cfg.mux
 
+	// Redirects users to the root of the API and returns route endpoints for the API
 	mux.HandleFunc("/api/v1/", mw.LoggingMiddleware(rootHandler.HandleRoot))
 
-	mux.HandleFunc("/api/v1/options", func(w http.ResponseWriter, r *http.Request) {})
+	// Polls route
+	mux.HandleFunc("GET /api/v1/polls", mw.LoggingMiddleware(pollHandler.GetAllPolls))
 
-	mux.HandleFunc("/api/v1/options/{Id}", func(w http.ResponseWriter, r *http.Request) {})
+	mux.HandleFunc("GET /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.GetPoll))
 
-	mux.HandleFunc("/api/v1/polls", func(w http.ResponseWriter, r *http.Request) {})
+	mux.HandleFunc("POST /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.UpdatePoll))
 
-	mux.HandleFunc("/api/v1/polls/{Id}", func(w http.ResponseWriter, r *http.Request) {})
+	mux.HandleFunc("POST /api/v1/polls", mw.LoggingMiddleware(pollHandler.CreatePoll))
 
-	mux.HandleFunc("/api/v1/polls/{Id}/votes", func(w http.ResponseWriter, r *http.Request) {})
+	mux.HandleFunc("DELETE /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.DeletePoll))
+	// End of poll routes
 
-	mux.HandleFunc("/api/v1/polls/{Id}/votes/{voteId}", func(w http.ResponseWriter, r *http.Request) {})
+	mux.HandleFunc("POST /api/v1/options", func(w http.ResponseWriter, r *http.Request) {})
 
-	mux.HandleFunc("/api/v1/polls/{Id}/votes/{voteId}/results", func(w http.ResponseWriter, r *http.Request) {})
+	mux.HandleFunc("GET /api/v1/options/{Id}", func(w http.ResponseWriter, r *http.Request) {})
+
+	mux.HandleFunc("GET /api/v1/polls/{pollId}/votes", func(w http.ResponseWriter, r *http.Request) {})
+
+	mux.HandleFunc("/api/v1/polls/{pollId}/votes/{voteId}", func(w http.ResponseWriter, r *http.Request) {})
+
+	mux.HandleFunc("/api/v1/polls/{pollId}/votes/{voteId}/results", func(w http.ResponseWriter, r *http.Request) {})
 
 	mux.HandleFunc("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {

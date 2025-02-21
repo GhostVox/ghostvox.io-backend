@@ -16,7 +16,7 @@ const createPoll = `-- name: CreatePoll :one
 INSERT INTO
     polls (user_id, title, description, expires_at, status)
 VALUES
-    ($1, $2, $3, now() + INTERVAL '1 day', 'Active')
+    ($1, $2, $3, $4, $5)
 RETURNING
     id, user_id, title, description, created_at, updated_at, expires_at, status
 `
@@ -25,10 +25,18 @@ type CreatePollParams struct {
 	UserID      uuid.UUID
 	Title       string
 	Description string
+	ExpiresAt   time.Time
+	Status      PollStatus
 }
 
 func (q *Queries) CreatePoll(ctx context.Context, arg CreatePollParams) (Poll, error) {
-	row := q.db.QueryRowContext(ctx, createPoll, arg.UserID, arg.Title, arg.Description)
+	row := q.db.QueryRowContext(ctx, createPoll,
+		arg.UserID,
+		arg.Title,
+		arg.Description,
+		arg.ExpiresAt,
+		arg.Status,
+	)
 	var i Poll
 	err := row.Scan(
 		&i.ID,

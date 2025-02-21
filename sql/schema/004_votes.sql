@@ -1,16 +1,6 @@
 -- +goose Up
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
-CREATE TABLE options (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4 (),
-    name TEXT NOT NULL,
-    poll_id UUID NOT NULL,
-    text TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT now (),
-    updated_at TIMESTAMP NOT NULL DEFAULT now (),
-    CONSTRAINT options_poll_id FOREIGN KEY (poll_id) REFERENCES polls (id) ON DELETE CASCADE
-);
-
 CREATE TABLE votes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4 (),
     poll_id UUID NOT NULL,
@@ -23,7 +13,5 @@ CREATE TABLE votes (
     CONSTRAINT votes_unique UNIQUE (poll_id, option_id, user_id)
 );
 
--- -goose Down
+-- +goose Down
 DROP TABLE votes;
-
-DROP TABLE options;

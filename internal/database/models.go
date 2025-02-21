@@ -59,7 +59,7 @@ func (ns NullPollStatus) Value() (driver.Value, error) {
 type Option struct {
 	ID        uuid.UUID
 	Name      string
-	PollID    int32
+	PollID    uuid.UUID
 	Text      string
 	CreatedAt time.Time
 	UpdatedAt time.Time

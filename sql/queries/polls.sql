@@ -2,7 +2,7 @@
 INSERT INTO
     polls (user_id, title, description, expires_at, status)
 VALUES
-    ($1, $2, $3, now() + INTERVAL '1 day', 'Active')
+    ($1, $2, $3, $4, $5)
 RETURNING
     *;
 
