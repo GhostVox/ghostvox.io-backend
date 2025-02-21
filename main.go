@@ -1,29 +1,41 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"net/http"
 	"os"
 
-	"github.com/Brent-the-carpenter/ghostvox.io-backend/internal/database"
-	"github.com/joho/godotenv"
-)
-type apiConfig struct {
-	db				 *database.Queries
-	platform		 string
-	port 		   string
+	"database/sql"
 
+	"github.com/GhostVox/ghostvox.io-backend/internal/database"
+	"github.com/GhostVox/ghostvox.io-backend/internal/handlers"
+	mw "github.com/GhostVox/ghostvox.io-backend/internal/middleware"
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
+)
+
+type apiConfig struct {
+	db       *database.Queries
+	platform string
+	port     string
+	mux      *http.ServeMux
 }
+
 func main() {
+
 	const (
 		port = ":8080"
 	)
+
+	// Load environment variables from .env file
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatalf("Error loading .env file")
 	}
 
-	dbURL := os.Getenv("DB_URL")
-	if dbURL == "" {
+	db_URL := os.Getenv("DB_URL")
+	if db_URL == "" {
 		log.Fatal("DB_URL must be set")
 	}
 
@@ -32,5 +44,61 @@ func main() {
 		log.Fatal("PLATFORM must be set")
 	}
 
-	db, err :=
+	//Connect to database
+	db, err := sql.Open("postgres", db_URL)
+	if err != nil {
+		log.Fatal(fmt.Sprintf("Error connecting to database: %v", err))
+	}
+
+	//Connect database to sqlc code to get a pointer to queries to build handlers
+	dbConnection := database.New(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+	//Configure API struct to pass around
+	cfg := apiConfig{
+		db:       dbConnection,
+		platform: platform,
+		port:     port,
+	}
+	rootHandler := handlers.NewRootHandler(cfg.db)
+
+	mux := http.NewServeMux()
+	//  start attaching route handlers to cfg.mux
+
+	mux.HandleFunc("/api/v1/", mw.LoggingMiddleware(rootHandler.HandleRoot))
+
+	mux.HandleFunc("/api/v1/options", func(w http.ResponseWriter, r *http.Request) {})
+
+	mux.HandleFunc("/api/v1/options/{Id}", func(w http.ResponseWriter, r *http.Request) {})
+
+	mux.HandleFunc("/api/v1/polls", func(w http.ResponseWriter, r *http.Request) {})
+
+	mux.HandleFunc("/api/v1/polls/{Id}", func(w http.ResponseWriter, r *http.Request) {})
+
+	mux.HandleFunc("/api/v1/polls/{Id}/votes", func(w http.ResponseWriter, r *http.Request) {})
+
+	mux.HandleFunc("/api/v1/polls/{Id}/votes/{voteId}", func(w http.ResponseWriter, r *http.Request) {})
+
+	mux.HandleFunc("/api/v1/polls/{Id}/votes/{voteId}/results", func(w http.ResponseWriter, r *http.Request) {})
+
+	mux.HandleFunc("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			http.Redirect(w, r, "http://localhost:8080/api/v1", http.StatusFound)
+			return
+		}
+
+		http.NotFound(w, r)
+	}))
+
+	// Create a pointer to the http.Server object and configure it
+	server := &http.Server{
+		Addr:    cfg.port,
+		Handler: mux,
+	}
+
+	// Start the server
+	log.Printf("Server running on http://localhost%s", cfg.port)
+	log.Fatal(server.ListenAndServe())
+
 }
