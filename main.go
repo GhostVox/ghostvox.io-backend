@@ -74,24 +74,24 @@ func main() {
 
 	mux.HandleFunc("GET /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.GetPoll))
 
-	mux.HandleFunc("POST /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.UpdatePoll))
+	mux.HandleFunc("PUT /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.UpdatePoll))
 
 	mux.HandleFunc("POST /api/v1/polls", mw.LoggingMiddleware(pollHandler.CreatePoll))
 
 	mux.HandleFunc("DELETE /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.DeletePoll))
 	// End of poll routes
 
-	mux.HandleFunc("POST /api/v1/options", func(w http.ResponseWriter, r *http.Request) {})
+	mux.HandleFunc("POST /api/v1/polls/{pollId}/options", func(w http.ResponseWriter, r *http.Request) {})
 
-	mux.HandleFunc("GET /api/v1/options/{Id}", func(w http.ResponseWriter, r *http.Request) {})
+	mux.HandleFunc("GET /api/v1/polls/{pollId}/options", func(w http.ResponseWriter, r *http.Request) {})
 
-	mux.HandleFunc("GET /api/v1/polls/{pollId}/votes", func(w http.ResponseWriter, r *http.Request) {})
+	mux.HandleFunc("PUT /api/v1/polls/{pollId}/options/{optionId}", func(w http.ResponseWriter, r *http.Request) {})
 
 	mux.HandleFunc("/api/v1/polls/{pollId}/votes/{voteId}", func(w http.ResponseWriter, r *http.Request) {})
 
 	mux.HandleFunc("/api/v1/polls/{pollId}/votes/{voteId}/results", func(w http.ResponseWriter, r *http.Request) {})
 
-	mux.HandleFunc("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
 			http.Redirect(w, r, "http://localhost:8080/api/v1", http.StatusFound)
 			return

@@ -20,19 +20,19 @@ type poll struct {
 	Status      string `json:"status"`
 }
 
-type postHandler struct {
-	queries *database.Queries
+type pollHandler struct {
+	db *database.Queries
 }
 
-func NewPollHandler(queries *database.Queries) *postHandler {
-	return &postHandler{
-		queries: queries,
+func NewPollHandler(db *database.Queries) *pollHandler {
+	return &pollHandler{
+		db: db,
 	}
 }
 
-// Posts route
-func (h *postHandler) GetAllPolls(w http.ResponseWriter, r *http.Request) {
-	polls, err := h.queries.GetAllPolls(c.Background())
+// Polls route
+func (h *pollHandler) GetAllPolls(w http.ResponseWriter, r *http.Request) {
+	polls, err := h.db.GetAllPolls(c.Background())
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			chooseError(w, http.StatusNotFound, err)
@@ -47,7 +47,7 @@ func (h *postHandler) GetAllPolls(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func (h *postHandler) GetPoll(w http.ResponseWriter, r *http.Request) {
+func (h *pollHandler) GetPoll(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("pollId")
 	if id == "" {
 		chooseError(w, http.StatusBadRequest, errors.New("pollId is Required"))
@@ -60,7 +60,7 @@ func (h *postHandler) GetPoll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	poll, err := h.queries.GetPoll(c.Background(), pollUUID)
+	poll, err := h.db.GetPoll(c.Background(), pollUUID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			chooseError(w, http.StatusNotFound, err)
@@ -75,7 +75,7 @@ func (h *postHandler) GetPoll(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func (h *postHandler) CreatePoll(w http.ResponseWriter, r *http.Request) {
+func (h *pollHandler) CreatePoll(w http.ResponseWriter, r *http.Request) {
 	newPoll := poll{}
 	defer r.Body.Close()
 	if err := json.NewDecoder(r.Body).Decode(&newPoll); err != nil {
@@ -98,7 +98,7 @@ func (h *postHandler) CreatePoll(w http.ResponseWriter, r *http.Request) {
 		expiresAt = time.Now().UTC().Add(time.Duration(24 * time.Hour))
 	}
 
-	pollRecord, err := h.queries.CreatePoll(c.Background(), database.CreatePollParams{
+	pollRecord, err := h.db.CreatePoll(c.Background(), database.CreatePollParams{
 		UserID:      userUUID,
 		Description: newPoll.Description,
 		Title:       newPoll.Description,
@@ -120,9 +120,10 @@ func (h *postHandler) CreatePoll(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func (h *postHandler) UpdatePoll(w http.ResponseWriter, r *http.Request) {
+func (h *pollHandler) UpdatePoll(w http.ResponseWriter, r *http.Request) {
 	pollId := r.PathValue("pollId")
 	newPoll := poll{}
+	defer r.Body.Close()
 	err := json.NewDecoder(r.Body).Decode(&newPoll)
 	if err != nil {
 		chooseError(w, http.StatusInternalServerError, err)
@@ -146,7 +147,7 @@ func (h *postHandler) UpdatePoll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pollRecord, err := h.queries.UpdatePoll(c.Background(), database.UpdatePollParams{
+	pollRecord, err := h.db.UpdatePoll(c.Background(), database.UpdatePollParams{
 		ID:          pollUUID,
 		UserID:      userUUID,
 		Description: newPoll.Description,
@@ -169,7 +170,7 @@ func (h *postHandler) UpdatePoll(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func (h *postHandler) DeletePoll(w http.ResponseWriter, r *http.Request) {
+func (h *pollHandler) DeletePoll(w http.ResponseWriter, r *http.Request) {
 	pollId := r.PathValue("pollId")
 	if pollId == "" {
 		chooseError(w, http.StatusBadRequest, errors.New("PollID is required"))
@@ -182,7 +183,7 @@ func (h *postHandler) DeletePoll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.queries.DeletePoll(c.Background(), pollUUID)
+	err = h.db.DeletePoll(c.Background(), pollUUID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			chooseError(w, http.StatusNotFound, err)

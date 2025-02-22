@@ -1,141 +1,283 @@
-# Ghostvox backend RESTFUL API
->This is the backend for the ***Ghostvox app***. It is a RESTFUL API that is built using Go.
-It is hosted on fly.io and uses a Postgres database.
-The API is used to store and retrieve audio files and metadata for the Ghostvox app.
+# Ghostvox Backend RESTful API
+
+This is the backend for the **Ghostvox app**. It is a RESTful API built using Go, hosted on Fly.io with a PostgreSQL database. The API handles storage and retrieval of audio files and metadata for the Ghostvox app.
+
+---
 
 ## Endpoints
->### CURRENT/POLLS
-  >- GET v1/current/polls
-  >- GET v1/current/polls/{id}
-  >- POST v1/current/polls
-  >- PUT v1/current/polls/{id}
-  >- DELETE v1/current/polls/{id}
-  #### RESPONSE
+&nbsp;
+&nbsp;
+### User Endpoints
+
+#### 🚀 Create User ✅
+- **Route:** `POST /api/v1/users`
+- **Request:**
   ```json
   {
-    "id": 1,
-    "question": "What is your favorite color?",
-    "options": [
-      {
-        "id": 1,
-        "text": "Red"
-      },
-      {
-        "id": 2,
-        "text": "Blue"
-      },
-      {
-        "id": 3,
-        "text": "Green"
-      }
-    ]
+    "name": "John",
+    "email": "john@example.com",
+    "last_name": "Smith",
+    "user_token": "abc123",
+    "role": "user"
+  }
+  ```
+- **Response (201 Created):**
+  ```json
+  {
+    "id": "1",
+    "name": "John",
+    "email": "john@example.com",
+    "last_name": "Smith",
+    "user_token": "abc123",
+    "role": "user"
+  }
+  ```
+&nbsp;
+#### 🔍 Get All Users ✅
+- **Route:** `GET /api/v1/users`
+- **Response (200 OK):**
+  ```json
+  [
+    {
+      "id": "1",
+      "name": "John",
+      "email": "john@example.com",
+      "last_name": "Smith",
+      "user_token": "abc123",
+      "role": "user"
+    },
+    {
+      "id": "2",
+      "name": "Jane",
+      "email": "jane@example.com",
+      "last_name": "Doe",
+      "user_token": "def456",
+      "role": "admin"
+    }
+  ]
+  ```
+&nbsp;
+#### 🔍 Get Single User ✅
+- **Route:** `GET /api/v1/users/{id}`
+- **Response (200 OK):**
+  ```json
+  {
+    "id": "1",
+    "name": "John",
+    "email": "john@example.com",
+    "last_name": "Smith",
+    "user_token": "abc123",
+    "role": "user"
+  }
+  ```
+&nbsp;
+#### ✏️ Update User ✅
+- **Route:** `PUT /api/v1/users/{id}`
+- **Request:**
+  ```json
+  {
+    "id": "1",
+    "name": "John",
+    "email": "john@example.com",
+    "last_name": "Smith",
+    "user_token": "abc123",
+    "role": "user"
+  }
+  ```
+- **Response (200 OK):**
+  ```json
+  {
+    "id": "1",
+    "name": "John",
+    "email": "john@example.com",
+    "last_name": "Smith",
+    "user_token": "abc123",
+    "role": "user"
+  }
+  ```
+&nbsp;
+#### ❌ Delete User ✅
+- **Route:** `DELETE /api/v1/users/{id}`
+- **Response (204 No Content)**
 
+---
+&nbsp;
+&nbsp;
+### Poll Endpoints
+&nbsp;
+#### 🚀 Create Poll ✅
+- **Route:** `POST /api/v1/polls`
+- **Request:**
+  ```json
+  {
+    "userId": "user123",
+    "title": "Sample Poll",
+    "description": "This is a sample poll description",
+    "expiresAt": "2024-12-31T23:59:59Z",
+    "status": "Active|Inactive|Archived" // Case sensitive
+  }
+  ```
+- **Response (201 Created):**
+  ```json
+  {
+    "id": "1",
+    "userId": "user123",
+    "title": "Sample Poll",
+    "description": "This is a sample poll description",
+    "expiresAt": "2024-12-31T23:59:59Z",
+    "status": "active"
+  }
+  ```
+&nbsp;
+#### 🔍 Get Poll ✅
+- **Route:** `GET /api/v1/polls/{id}`
+- **Response (200 OK):**
+  ```json
+  {
+    "id": "1",
+    "userId": "user123",
+    "title": "Sample Poll",
+    "description": "This is a sample poll description",
+    "expiresAt": "2024-12-31T23:59:59Z",
+    "status": "active"
+  }
+  ```
+&nbsp;
+#### ✏️ Update Poll ✅
+- **Route:** `PUT /api/v1/polls/{id}`
+- **Request:**
+  ```json
+  {
+    "id": "1",
+    "userId": "user123",
+    "title": "Updated Poll",
+    "description": "This is an updated poll description",
+    "expiresAt": "2024-12-31T23:59:59Z",
+    "status": "Inactive"
+  }
+  ```
+- **Response (200 OK):**
+  ```json
+  {
+    "id": "1",
+    "userId": "user123",
+    "title": "Updated Poll",
+    "description": "This is an updated poll description",
+    "expiresAt": "2024-12-31T23:59:59Z",
+    "status": "inactive"
+  }
+  ```
+&nbsp;
+#### ❌ Delete Poll ✅
+- **Route:** `DELETE /api/v1/polls/{id}`
+- **Response (204 No Content)**
+
+&nbsp;
+### Vote Endpoints
+&nbsp;
+#### 🚀 Create Vote
+- **Route:** `POST /api/v1/polls/{id}/votes`
+- **Request:**
+  ```json
+  {
+    "userId": "user123",
+    "optionId": "option1",
 
   }
   ```
-
-  ## FINISHED/POLLS
-  >- GET v1/finished/polls
-  >- GET v1/finished/polls/{id}
-
-### RESPOSNSE
+- **Response (201 Created):**
   ```json
   {
-    "id": 1,
-    "question": "What is your favorite color?",
-    "options": [
-      {
-        "id": 1,
-        "text": "Red",
-        "votes": 5
-      },
-      {
-        "id": 2,
-        "text": "Blue",
-        "votes": 3
-      },
-      {
-        "id": 3,
-        "text": "Green",
-        "votes": 2
-      }
-    ],
-  "winning_result": "option_id"
+    "id": "1",
+    "userId": "user123",
+    "optionId": "option1"
   }
   ```
-
-  ## VOTES
-  >- POST v1/votes
-  #### REQUEST
+&nbsp;
+#### 🔍 Get Vote
+- **Route:** `GET /api/v1/polls/{id}/votes/{id}`
+- **Response (200 OK):**
   ```json
   {
-    "poll_id": 1,
-    "option_id": 1,
-    "user_token": "1234567890",
-    "user_id": 1,
-
+    "id": "1",
+    "userId": "user123",
+    "optionId": "option1"
   }
   ```
-  #### RESPONSE
+&nbsp;
+#### ✏️ Get Votes
+- **Route:** `GET /api/v1/polls/{id}/votes`
+- **Response (200 OK):**
+  ```json
+  [
+    {
+      "id": "1",
+      "userId": "user123",
+      "optionId": "option1"
+    },
+    {
+      "id": "2",
+      "userId": "user456",
+      "optionId": "option2"
+    }
+  ]
+  ```
+&nbsp;
+#### ❌ Delete Vote
+- **Route:** `DELETE /api/v1/polls/{id}/votes/{id}`
+- **Response (204 No Content)**
+
+&nbsp;
+### Options Endpoint
+&nbsp;
+#### 🚀 Create Option
+- **Route:** `POST /api/v1/polls/{id}/options`
+- **Request:**
   ```json
   {
-    "id": 1,
-    "poll_id": 1,
-    "option_id": 1,
-    "status_code": code
+    "userId": "user123",
+    "text": "Option 1"
   }
   ```
-
-  ## USERS
-  >- GET v1/users
-  >- GET v1/users/{id}
-  >- POST v1/users
-  >- PUT v1/users/{id}
-  >- DELETE v1/users/{id}
-  ### REQUEST
+- **Response (201 Created):**
   ```json
   {
-    "id": 1,
-    "name": "Brent Harrington",
-    "email": "bob@gmail.com",
-    "user_token": "password",
-    "ip_address": "",
-    "user_agent": "",
-    "created_at": "2021-07-01T00:00:00Z",
-  "updated_at": "2021-07-01T00:00:00Z"
+    "id": "1",
+    "userId": "user123",
+    "text": "Option 1"
   }
   ```
-
-  #### RESPONSE
+&nbsp;
+#### 🔍 Get Option
+- **Route:** `GET /api/v1/polls/{id}/options/{id}`
+- **Response (200 OK):**
   ```json
   {
-    "id": 1,
-    "name": "Brent Harrington",
-    "errors":[
-      {
-        "field": "email",
-        "message": "Email is already taken"
-      }
-    ],
-    "status": code,
-  }
-    ```
-
-### Users
-  >- GET v1/users
-  >- GET v1/users/{id}
-  >- POST v1/users
-  >- PUT v1/users/{id}
-  >- DELETE v1/users/{id}
-  #### RESPONSE
-  ```json
-  {
-    "id": 1,
-    "name": "Brent Harrington",
-    "email": "bobs@gmail.com",
-    "user_token": "1234567890",
-    "user_id": 1,
-
-
+    "id": "1",
+    "userId": "user123",
+    "text": "Option 1"
   }
   ```
+&nbsp;
+#### ✏️ Update Option
+- **Route:** `PUT /api/v1/polls/{id}/options/{id}`
+- **Request:**
+  ```json
+  {
+    "id": "1",
+    "userId": "user123",
+    "text": "Updated Option"
+  }
+  ```
+- **Response (200 OK):**
+  ```json
+  {
+    "id": "1",
+    "userId": "user123",
+    "text": "Updated Option"
+  }
+  ```
+&nbsp;
+#### ❌ Delete Option
+- **Route:** `DELETE /api/v1/polls/{id}/options/{id}`
+- **Response (204 No Content)**

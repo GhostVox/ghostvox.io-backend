@@ -1,40 +1,158 @@
 package handlers
 
 import (
-	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/GhostVox/ghostvox.io-backend/internal/database"
 )
 
 type RootHandler struct {
-	queries *database.Queries
+	db *database.Queries
 }
 
-func NewRootHandler(queries *database.Queries) *RootHandler {
+func NewRootHandler(db *database.Queries) *RootHandler {
 	return &RootHandler{
-		queries: queries,
+		db: db,
 	}
 }
 
 func (db *RootHandler) HandleRoot(w http.ResponseWriter, r *http.Request) {
 
-	response := struct {
-		Message string `json:"message"`
-	}{
-		Message: "welcome to ghostvox.io-backend",
+	type route struct {
+		Path              string `json:"path"`
+		Method            string `json:"method"`
+		Description       string `json:"description"`
+		User_token_Needed bool   `json:"User_token_Needed"`
+		Public            bool   `json:"public"`
 	}
-	encoded, err := json.Marshal(response)
-	if err != nil {
-		fmt.Printf("Could not encode response error:%s", err)
+	type welcome struct {
+		Message string  `json:"message"`
+		Routes  []route `json:"routes"`
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_, err = w.Write(encoded)
-	if err != nil {
-		fmt.Printf("Could not write response error:%s", err)
-	}
+	respondWithJSON(w, http.StatusOK, welcome{
+		Message: "Welcome to GhostVox.io-backend",
+		Routes: []route{
+			{
+				Path:              "/api/v1/users",
+				Method:            "GET",
+				Description:       "Get all users",
+				User_token_Needed: false,
+				Public:            true,
+			},
+			{
+				Path:              "/api/v1/users/:id",
+				Method:            "GET",
+				Description:       "Get a user by ID",
+				User_token_Needed: true,
+				Public:            false,
+			},
+			{
+				Path:              "/api/v1/users",
+				Method:            "POST",
+				Description:       "Create a new user",
+				User_token_Needed: true,
+				Public:            false,
+			},
+			{
+				Path:              "/api/v1/users/:id",
+				Method:            "PUT",
+				Description:       "Update a user by ID",
+				User_token_Needed: true,
+				Public:            false,
+			},
+			{
+				Path:              "/api/v1/users/:id",
+				Method:            "DELETE",
+				Description:       "Delete a user by ID",
+				User_token_Needed: true,
+				Public:            false,
+			},
+			{
+				Path:              "/api/v1/poll",
+				Method:            "GET",
+				Description:       "Get all polls",
+				User_token_Needed: false,
+				Public:            true,
+			},
+			{
+				Path:              "/api/v1/poll/:id",
+				Method:            "GET",
+				Description:       "Get a poll by ID",
+				User_token_Needed: false,
+				Public:            true,
+			},
+			{
+				Path:              "/api/v1/poll",
+				Method:            "POST",
+				Description:       "Create a new poll",
+				User_token_Needed: true,
+				Public:            false,
+			},
+			{
+				Path:              "/api/v1/poll/:id",
+				Method:            "PUT",
+				Description:       "Update a poll by ID",
+				User_token_Needed: true,
+				Public:            false,
+			},
+			{
+				Path:              "/api/v1/poll/:id",
+				Method:            "DELETE",
+				Description:       "Delete a poll by ID",
+				User_token_Needed: true,
+				Public:            false,
+			},
+			{
+				Path:              "/api/v1/poll/:id/vote",
+				Method:            "POST",
+				Description:       "Vote on a poll",
+				User_token_Needed: true,
+				Public:            false,
+			},
+			{
+				Path:              "/api/v1/poll/:id/vote",
+				Method:            "DELETE",
+				Description:       "Unvote on a poll",
+				User_token_Needed: true,
+				Public:            false,
+			},
+			{
+				Path:              "/api/v1/poll/:id/options",
+				Method:            "GET",
+				Description:       "Get all options",
+				User_token_Needed: false,
+				Public:            true,
+			},
+			{
+				Path:              "/api/v1/poll/:id/options/:option_id",
+				Method:            "GET",
+				Description:       "Get an option by ID",
+				User_token_Needed: false,
+				Public:            true,
+			},
+			{
+				Path:              "/api/v1/poll/:id/options",
+				Method:            "POST",
+				Description:       "Create a new option",
+				User_token_Needed: true,
+				Public:            false,
+			},
+			{
+				Path:              "/api/v1/poll/:id/options/:option_id",
+				Method:            "PUT",
+				Description:       "Update an option by ID",
+				User_token_Needed: true,
+				Public:            false,
+			},
+			{
+				Path:              "/api/v1/poll/:id/options/:option_id",
+				Method:            "DELETE",
+				Description:       "Delete an option by ID",
+				User_token_Needed: true,
+				Public:            false,
+			},
+		},
+	})
 	return
 }
