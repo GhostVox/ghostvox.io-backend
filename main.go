@@ -61,8 +61,12 @@ func main() {
 		platform: platform,
 		port:     port,
 	}
+	// Initialize handlers
 	rootHandler := handlers.NewRootHandler(cfg.db)
 	pollHandler := handlers.NewPollHandler(cfg.db)
+	voteHandler := handlers.NewVoteHandler(cfg.db)
+	optionHandler := handlers.NewOptionHandler(cfg.db)
+
 	mux := http.NewServeMux()
 	//  start attaching route handlers to cfg.mux
 
@@ -81,17 +85,40 @@ func main() {
 	mux.HandleFunc("DELETE /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.DeletePoll))
 	// End of poll routes
 
-	mux.HandleFunc("POST /api/v1/polls/{pollId}/options", func(w http.ResponseWriter, r *http.Request) {})
+	// Users route
+	mux.HandleFunc("POST /api/v1/users", func(w http.ResponseWriter, r *http.Request) {})
 
-	mux.HandleFunc("GET /api/v1/polls/{pollId}/options", func(w http.ResponseWriter, r *http.Request) {})
+	mux.HandleFunc("GET /api/v1/users/{userId}", func(w http.ResponseWriter, r *http.Request) {})
 
-	mux.HandleFunc("PUT /api/v1/polls/{pollId}/options/{optionId}", func(w http.ResponseWriter, r *http.Request) {})
+	mux.HandleFunc("PUT /api/v1/users/{userId}", func(w http.ResponseWriter, r *http.Request) {})
 
-	mux.HandleFunc("/api/v1/polls/{pollId}/votes/{voteId}", func(w http.ResponseWriter, r *http.Request) {})
+	mux.HandleFunc("DELETE /api/v1/users/{userId}", func(w http.ResponseWriter, r *http.Request) {})
+	// End of users routes
 
-	mux.HandleFunc("/api/v1/polls/{pollId}/votes/{voteId}/results", func(w http.ResponseWriter, r *http.Request) {})
+	// Votes Routes
 
-	mux.HandleFunc("GET/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /api/v1/polls/{pollId}/votes", mw.LoggingMiddleware(voteHandler.CreateVote))
+
+	mux.HandleFunc("GET /api/v1/polls/{pollId}/votes", mw.LoggingMiddleware(voteHandler.GetVotes))
+
+	mux.HandleFunc("GET /api/v1/polls/{pollId}/votes/{voteId}", mw.LoggingMiddleware(voteHandler.GetVote))
+
+	mux.HandleFunc("DELETE /api/v1/polls/{pollId}/votes/{voteId}", mw.LoggingMiddleware(voteHandler.DeleteVote))
+
+	// Options Routes
+	mux.HandleFunc("POST /api/v1/polls/{pollId}/options", mw.LoggingMiddleware(optionHandler.CreateOption))
+
+	mux.HandleFunc("GET /api/v1/polls/{pollId}/options/{optionId}", mw.LoggingMiddleware(optionHandler.GetOption))
+
+	mux.HandleFunc("GET /api/v1/polls/{pollId}/options", mw.LoggingMiddleware(optionHandler.GetOptions))
+
+	mux.HandleFunc("PUT /api/v1/polls/{pollId}/options/{optionId}", mw.LoggingMiddleware(optionHandler.UpdateOption))
+
+	mux.HandleFunc("DELETE /api/v1/polls/{pollId}/options/{optionId}", mw.LoggingMiddleware(optionHandler.DeleteOption))
+	// End of options routes
+
+	//Redirect from root page to API documentation
+	mux.HandleFunc("GET /", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
 			http.Redirect(w, r, "http://localhost:8080/api/v1", http.StatusFound)
 			return

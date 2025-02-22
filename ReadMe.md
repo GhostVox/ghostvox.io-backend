@@ -1,6 +1,6 @@
 # Ghostvox Backend RESTful API
 
-This is the backend for the **Ghostvox app**. It is a RESTful API built using Go, hosted on Fly.io with a PostgreSQL database. The API handles storage and retrieval of audio files and metadata for the Ghostvox app.
+This is the backend for the **Ghostvox app**. It is a RESTful API built using Go, hosted on Fly.io with a PostgreSQL database. The API handles storage and retrieval of  polls and their data for the Ghostvox app.
 
 ---
 
@@ -143,6 +143,30 @@ This is the backend for the **Ghostvox app**. It is a RESTful API built using Go
   }
   ```
 &nbsp;
+### 🔍 Get Polls
+- **Route:** `GET /api/v1/polls`
+- **Response (200 OK):**
+  ```json
+  [
+    {
+      "id": "1",
+      "userId": "user123",
+      "title": "Sample Poll",
+      "description": "This is a sample poll description",
+      "expiresAt": "2024-12-31T23:59:59Z",
+      "status": "active"
+    },
+    {
+      "id": "2",
+      "userId": "user123",
+      "title": "Another Sample Poll",
+      "description": "This is another sample poll description",
+      "expiresAt": "2024-12-31T23:59:59Z",
+      "status": "active"
+    }
+  ]
+  ```
+&nbsp;
 #### ✏️ Update Poll ✅
 - **Route:** `PUT /api/v1/polls/{id}`
 - **Request:**
@@ -257,6 +281,24 @@ This is the backend for the **Ghostvox app**. It is a RESTful API built using Go
     "userId": "user123",
     "text": "Option 1"
   }
+  ```
+&nbsp;
+#### 🔍 Get Options
+- **Route:** `GET /api/v1/polls/{id}/options`
+- **Response (200 OK):**
+  ```json
+  [
+    {
+      "id": "1",
+      "userId": "user123",
+      "text": "Option 1"
+    },
+    {
+      "id": "2",
+      "userId": "user456",
+      "text": "Option 2"
+    }
+  ]
   ```
 &nbsp;
 #### ✏️ Update Option
