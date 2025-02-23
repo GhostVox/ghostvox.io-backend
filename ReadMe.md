@@ -259,8 +259,16 @@ This is the backend for the **Ghostvox app**. It is a RESTful API built using Go
 - **Request:**
   ```json
   {
-    "userId": "user123",
-    "text": "Option 1"
+    "options": [
+      {
+        "name": "Option Name",
+        "value": "Option 1",
+      },
+      {
+        "name": "Option Name",
+        "value": "Option 2",
+      }
+    ]
   }
   ```
 - **Response (201 Created):**

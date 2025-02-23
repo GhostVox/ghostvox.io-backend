@@ -63,17 +63,17 @@ func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
-const getUser = `-- name: GetUser :one
+const getUserById = `-- name: GetUserById :one
 SELECT
     id, created_at, updated_at, email, first_name, last_name, user_token, role
 FROM
     users
 WHERE
-    email = $1
+    id = $1
 `
 
-func (q *Queries) GetUser(ctx context.Context, email string) (User, error) {
-	row := q.db.QueryRowContext(ctx, getUser, email)
+func (q *Queries) GetUserById(ctx context.Context, id uuid.UUID) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserById, id)
 	var i User
 	err := row.Scan(
 		&i.ID,
@@ -135,7 +135,8 @@ SET
     first_name = $2,
     last_name = $3,
     user_token = $4,
-    role = $5
+    role = $5,
+    updated_at = NOW()
 WHERE
     id = $6 RETURNING id, created_at, updated_at, email, first_name, last_name, user_token, role
 `

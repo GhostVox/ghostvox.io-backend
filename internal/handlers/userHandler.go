@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -29,7 +28,7 @@ func NewUserHandler(db *database.Queries) *UserHandler {
 	}
 }
 
-func (h *UserHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := h.db.GetUsers(r.Context())
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -45,13 +44,17 @@ func (h *UserHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("userID")
+	id := r.PathValue("userId")
 	if id == "" {
 		chooseError(w, http.StatusBadRequest, errors.New("missing id"))
 		return
 	}
-
-	user, err := h.db.GetUser(r.Context(), id)
+	UserUUID, err := uuid.Parse(id)
+	if err != nil {
+		chooseError(w, http.StatusBadRequest, errors.New("invalid id"))
+		return
+	}
+	user, err := h.db.GetUserById(r.Context(), UserUUID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			chooseError(w, http.StatusNotFound, err)
@@ -91,7 +94,7 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("userID")
+	id := r.PathValue("userId")
 	if id == "" {
 		chooseError(w, http.StatusBadRequest, errors.New("missing id"))
 		return
@@ -104,7 +107,12 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		chooseError(w, http.StatusInternalServerError, err)
 		return
 	}
-	userRecord, err := h.db.GetUser(context.Background(), user.Email)
+	UserUUID, err := uuid.Parse(id)
+	if err != nil {
+		chooseError(w, http.StatusBadRequest, errors.New("invalid id"))
+		return
+	}
+	userRecord, err := h.db.GetUserById(r.Context(), UserUUID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			chooseError(w, http.StatusNotFound, err)
@@ -136,11 +144,12 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("userID")
+	id := r.PathValue("userId")
 	if id == "" {
 		chooseError(w, http.StatusBadRequest, errors.New("missing id"))
 		return
 	}
+
 	userUUID, err := uuid.Parse(id)
 	if err != nil {
 		chooseError(w, http.StatusBadRequest, err)

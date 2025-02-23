@@ -4,13 +4,13 @@ Select
 FROM
     users;
 
--- name: GetUser :one
+-- name: GetUserById :one
 SELECT
     *
 FROM
     users
 WHERE
-    email = $1;
+    id = $1;
 
 -- name: UpdateUser :one
 UPDATE
@@ -20,7 +20,8 @@ SET
     first_name = $2,
     last_name = $3,
     user_token = $4,
-    role = $5
+    role = $5,
+    updated_at = NOW()
 WHERE
     id = $6 RETURNING *;
 
