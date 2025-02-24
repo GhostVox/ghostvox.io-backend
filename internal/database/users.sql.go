@@ -8,20 +8,19 @@ package database
 import (
 	"context"
 	"database/sql"
-
-	"github.com/google/uuid"
 )
 
 const createUser = `-- name: CreateUser :one
 INSERT INTO
-    users (email, first_name, last_name, user_token, role)
+    users (id, email, first_name, last_name, user_token, role)
 VALUES
-    ($1, $2, $3, $4, $5)
+    ($1, $2, $3, $4, $5, $6)
 RETURNING
     id, created_at, updated_at, email, first_name, last_name, user_token, role
 `
 
 type CreateUserParams struct {
+	ID        string
 	Email     string
 	FirstName string
 	LastName  sql.NullString
@@ -31,6 +30,7 @@ type CreateUserParams struct {
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
 	row := q.db.QueryRowContext(ctx, createUser,
+		arg.ID,
 		arg.Email,
 		arg.FirstName,
 		arg.LastName,
@@ -58,7 +58,7 @@ WHERE
     id = $1
 `
 
-func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
+func (q *Queries) DeleteUser(ctx context.Context, id string) error {
 	_, err := q.db.ExecContext(ctx, deleteUser, id)
 	return err
 }
@@ -72,7 +72,7 @@ WHERE
     id = $1
 `
 
-func (q *Queries) GetUserById(ctx context.Context, id uuid.UUID) (User, error) {
+func (q *Queries) GetUserById(ctx context.Context, id string) (User, error) {
 	row := q.db.QueryRowContext(ctx, getUserById, id)
 	var i User
 	err := row.Scan(
@@ -147,7 +147,7 @@ type UpdateUserParams struct {
 	LastName  sql.NullString
 	UserToken string
 	Role      string
-	ID        uuid.UUID
+	ID        string
 }
 
 func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {

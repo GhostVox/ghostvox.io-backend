@@ -2,7 +2,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 Create table users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
+    id TEXT PRIMARY KEY NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now (),
     updated_at TIMESTAMP NOT NULL DEFAULT now (),
     email TEXT NOT NULL UNIQUE,

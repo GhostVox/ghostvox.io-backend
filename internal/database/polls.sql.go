@@ -22,7 +22,7 @@ RETURNING
 `
 
 type CreatePollParams struct {
-	UserID      uuid.UUID
+	UserID      string
 	Title       string
 	Description string
 	ExpiresAt   time.Time
@@ -177,7 +177,7 @@ WHERE
     user_id = $1
 `
 
-func (q *Queries) GetPollsByUser(ctx context.Context, userID uuid.UUID) ([]Poll, error) {
+func (q *Queries) GetPollsByUser(ctx context.Context, userID string) ([]Poll, error) {
 	rows, err := q.db.QueryContext(ctx, getPollsByUser, userID)
 	if err != nil {
 		return nil, err
@@ -223,7 +223,7 @@ WHERE
 `
 
 type UpdatePollParams struct {
-	UserID      uuid.UUID
+	UserID      string
 	Title       string
 	Description string
 	ExpiresAt   time.Time

@@ -62,11 +62,7 @@ func (vh *voteHandler) CreateVote(w http.ResponseWriter, r *http.Request) {
 		chooseError(w, http.StatusBadRequest, err)
 		return
 	}
-	userUUID, err := uuid.Parse(vote.UserId)
-	if err != nil {
-		chooseError(w, http.StatusBadRequest, err)
-		return
-	}
+
 	optionUUID, err := uuid.Parse(vote.OptionId)
 	if err != nil {
 		chooseError(w, http.StatusBadRequest, err)
@@ -76,7 +72,7 @@ func (vh *voteHandler) CreateVote(w http.ResponseWriter, r *http.Request) {
 	voteRecord, err := vh.db.CreateVote(context.Background(), database.CreateVoteParams{
 		PollID:   pollUUID,
 		OptionID: optionUUID,
-		UserID:   userUUID,
+		UserID:   vote.UserId,
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

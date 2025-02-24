@@ -83,12 +83,6 @@ func (h *pollHandler) CreatePoll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userUUID, err := uuid.Parse(newPoll.UserID)
-	if err != nil {
-		chooseError(w, http.StatusBadRequest, errors.New("Invalid UserID"))
-		return
-	}
-
 	expiresAt, err := time.Parse(time.RFC3339, newPoll.ExpiresAt)
 	if err != nil {
 		chooseError(w, http.StatusBadRequest, errors.New("Invalid ExpiresAt"))
@@ -99,9 +93,9 @@ func (h *pollHandler) CreatePoll(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pollRecord, err := h.db.CreatePoll(c.Background(), database.CreatePollParams{
-		UserID:      userUUID,
+		UserID:      newPoll.UserID,
 		Description: newPoll.Description,
-		Title:       newPoll.Description,
+		Title:       newPoll.Title,
 		ExpiresAt:   expiresAt,
 		Status:      database.PollStatus(newPoll.Status),
 	})
@@ -130,12 +124,6 @@ func (h *pollHandler) UpdatePoll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userUUID, err := uuid.Parse(newPoll.UserID)
-	if err != nil {
-		chooseError(w, http.StatusBadRequest, errors.New("Invalid UserID"))
-		return
-	}
-
 	pollUUID, err := uuid.Parse(pollId)
 	if err != nil {
 		chooseError(w, http.StatusBadRequest, errors.New("Invalid PollID"))
@@ -149,9 +137,9 @@ func (h *pollHandler) UpdatePoll(w http.ResponseWriter, r *http.Request) {
 
 	pollRecord, err := h.db.UpdatePoll(c.Background(), database.UpdatePollParams{
 		ID:          pollUUID,
-		UserID:      userUUID,
+		UserID:      newPoll.UserID,
 		Description: newPoll.Description,
-		Title:       newPoll.Description,
+		Title:       newPoll.Title,
 		ExpiresAt:   expiresAt,
 		Status:      database.PollStatus(newPoll.Status),
 	})

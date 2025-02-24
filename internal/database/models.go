@@ -67,7 +67,7 @@ type Option struct {
 
 type Poll struct {
 	ID          uuid.UUID
-	UserID      uuid.UUID
+	UserID      string
 	Title       string
 	Description string
 	CreatedAt   time.Time
@@ -77,7 +77,7 @@ type Poll struct {
 }
 
 type User struct {
-	ID        uuid.UUID
+	ID        string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	Email     string
@@ -92,5 +92,5 @@ type Vote struct {
 	PollID    uuid.UUID
 	OptionID  uuid.UUID
 	CreatedAt time.Time
-	UserID    uuid.UUID
+	UserID    string
 }

@@ -5,7 +5,7 @@ CREATE TYPE poll_status AS ENUM ('Active', 'Inactive', 'Archived');
 
 CREATE TABLE polls (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4 (),
-    user_id UUID NOT NULL,
+    user_id TEXT NOT NULL,
     title TEXT NOT NULL,
     description TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now (),

@@ -27,9 +27,9 @@ WHERE
 
 -- name: CreateUser :one
 INSERT INTO
-    users (email, first_name, last_name, user_token, role)
+    users (id, email, first_name, last_name, user_token, role)
 VALUES
-    ($1, $2, $3, $4, $5)
+    ($1, $2, $3, $4, $5, $6)
 RETURNING
     *;
 

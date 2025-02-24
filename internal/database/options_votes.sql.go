@@ -91,7 +91,7 @@ type GetVotesByOptionAndPollIDRow struct {
 	PollID      uuid.UUID
 	OptionID    uuid.UUID
 	CreatedAt   time.Time
-	UserID      uuid.UUID
+	UserID      string
 	ID_2        uuid.UUID
 	Name        string
 	PollID_2    uuid.UUID
@@ -99,7 +99,7 @@ type GetVotesByOptionAndPollIDRow struct {
 	CreatedAt_2 time.Time
 	UpdatedAt   time.Time
 	ID_3        uuid.UUID
-	UserID_2    uuid.UUID
+	UserID_2    string
 	Title       string
 	Description string
 	CreatedAt_3 time.Time

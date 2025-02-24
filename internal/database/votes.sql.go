@@ -19,7 +19,7 @@ VALUES ($1, $2, $3) RETURNING id, poll_id, option_id, created_at, user_id
 type CreateVoteParams struct {
 	PollID   uuid.UUID
 	OptionID uuid.UUID
-	UserID   uuid.UUID
+	UserID   string
 }
 
 func (q *Queries) CreateVote(ctx context.Context, arg CreateVoteParams) (Vote, error) {
@@ -132,7 +132,7 @@ const getVotesByUserID = `-- name: GetVotesByUserID :many
 SELECT id, poll_id, option_id, created_at, user_id FROM votes WHERE user_id = $1
 `
 
-func (q *Queries) GetVotesByUserID(ctx context.Context, userID uuid.UUID) ([]Vote, error) {
+func (q *Queries) GetVotesByUserID(ctx context.Context, userID string) ([]Vote, error) {
 	rows, err := q.db.QueryContext(ctx, getVotesByUserID, userID)
 	if err != nil {
 		return nil, err

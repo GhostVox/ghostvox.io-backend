@@ -7,16 +7,15 @@ import (
 	"net/http"
 
 	"github.com/GhostVox/ghostvox.io-backend/internal/database"
-	"github.com/google/uuid"
 )
 
 type User struct {
-	ID        uuid.UUID `json:"id"`
-	FirstName string    `json:"name"`
-	Email     string    `json:"email"`
-	LastName  string    `json:"last_name"`
-	UserToken string    `json:"user_token"`
-	Role      string    `json:"role"`
+	ID        string `json:"id"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Email     string `json:"email"`
+	UserToken string `json:"user_token"`
+	Role      string `json:"role"`
 }
 
 type UserHandler struct {
@@ -50,12 +49,8 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 		chooseError(w, http.StatusBadRequest, errors.New("missing id"))
 		return
 	}
-	UserUUID, err := uuid.Parse(id)
-	if err != nil {
-		chooseError(w, http.StatusBadRequest, errors.New("invalid id"))
-		return
-	}
-	user, err := h.db.GetUserById(r.Context(), UserUUID)
+
+	user, err := h.db.GetUserById(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			chooseError(w, http.StatusNotFound, err)
@@ -79,6 +74,7 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userRecord, err := h.db.CreateUser(r.Context(), database.CreateUserParams{
+		ID:        user.ID,
 		Email:     user.Email,
 		LastName:  sql.NullString{String: user.LastName, Valid: user.LastName != ""},
 		FirstName: user.FirstName,
@@ -108,12 +104,8 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		chooseError(w, http.StatusInternalServerError, err)
 		return
 	}
-	UserUUID, err := uuid.Parse(id)
-	if err != nil {
-		chooseError(w, http.StatusBadRequest, errors.New("invalid id"))
-		return
-	}
-	userRecord, err := h.db.GetUserById(r.Context(), UserUUID)
+
+	userRecord, err := h.db.GetUserById(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			chooseError(w, http.StatusNotFound, err)
@@ -151,13 +143,7 @@ func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userUUID, err := uuid.Parse(id)
-	if err != nil {
-		chooseError(w, http.StatusBadRequest, err)
-		return
-	}
-
-	err = h.db.DeleteUser(r.Context(), userUUID)
+	err := h.db.DeleteUser(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			chooseError(w, http.StatusNotFound, err)
