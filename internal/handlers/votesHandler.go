@@ -1,10 +1,21 @@
 package handlers
 
 import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/GhostVox/ghostvox.io-backend/internal/database"
+	"github.com/google/uuid"
 )
+
+type Vote struct {
+	PollId   string `json:"poll_id"`
+	OptionId string `json:"option_id"`
+	UserId   string `json:"user_id"`
+}
 
 type voteHandler struct {
 	db *database.Queries
@@ -16,37 +27,89 @@ func NewVoteHandler(db *database.Queries) *voteHandler {
 	}
 }
 
-func (vh *voteHandler) GetVote(w http.ResponseWriter, r *http.Request) {
-	// Implement the logic to create an option
-	w.WriteHeader(http.StatusNotImplemented)
-	w.Write([]byte("Not Implemented"))
-	return
-}
+func (vh *voteHandler) GetVotesByPoll(w http.ResponseWriter, r *http.Request) {
 
-func (vh *voteHandler) GetVotes(w http.ResponseWriter, r *http.Request) {
-	// Implement the logic to create an option
-	w.WriteHeader(http.StatusNotImplemented)
-	w.Write([]byte("Not Implemented"))
-	return
+	pollId := r.PathValue("pollId")
+	pollUUID, err := uuid.Parse(pollId)
+	if err != nil {
+		chooseError(w, http.StatusBadRequest, err)
+		return
+	}
+	votes, err := vh.db.GetVotesByPollID(context.Background(), pollUUID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			chooseError(w, http.StatusNotFound, err)
+			return
+		}
+		chooseError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, votes)
+
 }
 
 func (vh *voteHandler) CreateVote(w http.ResponseWriter, r *http.Request) {
-	// Implement the logic to create an option
-	w.WriteHeader(http.StatusNotImplemented)
-	w.Write([]byte("Not Implemented"))
-	return
-}
+	pollId := r.PathValue("pollId")
+	pollUUID, err := uuid.Parse(pollId)
+	if err != nil {
+		chooseError(w, http.StatusBadRequest, err)
+		return
+	}
+	var vote Vote
+	err = json.NewDecoder(r.Body).Decode(&vote)
+	if err != nil {
+		chooseError(w, http.StatusBadRequest, err)
+		return
+	}
+	userUUID, err := uuid.Parse(vote.UserId)
+	if err != nil {
+		chooseError(w, http.StatusBadRequest, err)
+		return
+	}
+	optionUUID, err := uuid.Parse(vote.OptionId)
+	if err != nil {
+		chooseError(w, http.StatusBadRequest, err)
+		return
+	}
 
-func (vh *voteHandler) UpdateVote(w http.ResponseWriter, r *http.Request) {
-	// Implement the logic to create an option
-	w.WriteHeader(http.StatusNotImplemented)
-	w.Write([]byte("Not Implemented"))
-	return
+	voteRecord, err := vh.db.CreateVote(context.Background(), database.CreateVoteParams{
+		PollID:   pollUUID,
+		OptionID: optionUUID,
+		UserID:   userUUID,
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			chooseError(w, http.StatusNotFound, err)
+			return
+		}
+		chooseError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	respondWithJSON(w, http.StatusCreated, voteRecord)
+
 }
 
 func (vh *voteHandler) DeleteVote(w http.ResponseWriter, r *http.Request) {
-	// Implement the logic to create an option
-	w.WriteHeader(http.StatusNotImplemented)
-	w.Write([]byte("Not Implemented"))
-	return
+
+	voteId := r.PathValue("voteId")
+	voteUUID, err := uuid.Parse(voteId)
+	if err != nil {
+		chooseError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	err = vh.db.DeleteVoteByID(context.Background(), voteUUID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			chooseError(w, http.StatusNotFound, err)
+			return
+		}
+		chooseError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+
 }

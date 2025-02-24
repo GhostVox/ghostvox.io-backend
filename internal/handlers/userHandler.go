@@ -11,11 +11,12 @@ import (
 )
 
 type User struct {
-	FirstName string `json:"name"`
-	Email     string `json:"email"`
-	LastName  string `json:"last_name"`
-	UserToken string `json:"user_token"`
-	Role      string `json:"role"`
+	ID        uuid.UUID `json:"id"`
+	FirstName string    `json:"name"`
+	Email     string    `json:"email"`
+	LastName  string    `json:"last_name"`
+	UserToken string    `json:"user_token"`
+	Role      string    `json:"role"`
 }
 
 type UserHandler struct {

@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const createVote = `-- name: CreateVote :exec
+const createVote = `-- name: CreateVote :one
 INSERT INTO votes (poll_id, option_id, user_id)
 VALUES ($1, $2, $3) RETURNING id, poll_id, option_id, created_at, user_id
 `
@@ -22,9 +22,17 @@ type CreateVoteParams struct {
 	UserID   uuid.UUID
 }
 
-func (q *Queries) CreateVote(ctx context.Context, arg CreateVoteParams) error {
-	_, err := q.db.ExecContext(ctx, createVote, arg.PollID, arg.OptionID, arg.UserID)
-	return err
+func (q *Queries) CreateVote(ctx context.Context, arg CreateVoteParams) (Vote, error) {
+	row := q.db.QueryRowContext(ctx, createVote, arg.PollID, arg.OptionID, arg.UserID)
+	var i Vote
+	err := row.Scan(
+		&i.ID,
+		&i.PollID,
+		&i.OptionID,
+		&i.CreatedAt,
+		&i.UserID,
+	)
+	return i, err
 }
 
 const deleteVoteByID = `-- name: DeleteVoteByID :exec
@@ -51,29 +59,6 @@ DELETE FROM votes WHERE poll_id = $1 RETURNING id, poll_id, option_id, created_a
 
 func (q *Queries) DeleteVotesByPollID(ctx context.Context, pollID uuid.UUID) error {
 	_, err := q.db.ExecContext(ctx, deleteVotesByPollID, pollID)
-	return err
-}
-
-const deleteVotesByUserID = `-- name: DeleteVotesByUserID :exec
-DELETE FROM votes WHERE user_id = $1 RETURNING id, poll_id, option_id, created_at, user_id
-`
-
-func (q *Queries) DeleteVotesByUserID(ctx context.Context, userID uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteVotesByUserID, userID)
-	return err
-}
-
-const deleteVotesByUserIDAndPollID = `-- name: DeleteVotesByUserIDAndPollID :exec
-DELETE FROM votes WHERE user_id = $1 AND poll_id = $2 RETURNING id, poll_id, option_id, created_at, user_id
-`
-
-type DeleteVotesByUserIDAndPollIDParams struct {
-	UserID uuid.UUID
-	PollID uuid.UUID
-}
-
-func (q *Queries) DeleteVotesByUserIDAndPollID(ctx context.Context, arg DeleteVotesByUserIDAndPollIDParams) error {
-	_, err := q.db.ExecContext(ctx, deleteVotesByUserIDAndPollID, arg.UserID, arg.PollID)
 	return err
 }
 

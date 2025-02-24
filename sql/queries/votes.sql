@@ -1,4 +1,4 @@
--- name: CreateVote :exec
+-- name: CreateVote :one
 INSERT INTO votes (poll_id, option_id, user_id)
 VALUES ($1, $2, $3) RETURNING *;
 
@@ -19,9 +19,3 @@ DELETE FROM votes WHERE poll_id = $1 RETURNING *;
 
 -- name: DeleteVotesByOptionID :exec
 DELETE FROM votes WHERE option_id = $1 RETURNING *;
-
--- name: DeleteVotesByUserID :exec
-DELETE FROM votes WHERE user_id = $1 RETURNING *;
-
--- name: DeleteVotesByUserIDAndPollID :exec
-DELETE FROM votes WHERE user_id = $1 AND poll_id = $2 RETURNING *;

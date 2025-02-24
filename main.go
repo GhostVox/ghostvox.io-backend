@@ -101,11 +101,9 @@ func main() {
 
 	mux.HandleFunc("POST /api/v1/polls/{pollId}/votes", mw.LoggingMiddleware(voteHandler.CreateVote))
 
-	mux.HandleFunc("GET /api/v1/polls/{pollId}/votes", mw.LoggingMiddleware(voteHandler.GetVotes))
+	mux.HandleFunc("GET /api/v1/polls/{pollId}/votes", mw.LoggingMiddleware(voteHandler.GetVotesByPoll))
 
-	mux.HandleFunc("GET /api/v1/polls/{pollId}/votes/{voteId}", mw.LoggingMiddleware(voteHandler.GetVote))
-
-	mux.HandleFunc("DELETE /api/v1/polls/{pollId}/votes/{voteId}", mw.LoggingMiddleware(voteHandler.DeleteVote))
+	mux.HandleFunc("DELETE /api/v1/votes/{voteId}", mw.LoggingMiddleware(voteHandler.DeleteVote))
 
 	// Options Routes
 	mux.HandleFunc("POST /api/v1/polls/{pollId}/options", mw.LoggingMiddleware(optionHandler.CreateOptions))
