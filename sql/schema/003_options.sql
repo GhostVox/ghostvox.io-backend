@@ -6,8 +6,11 @@ CREATE TABLE options (
     value TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now (),
     updated_at TIMESTAMP NOT NULL DEFAULT now (),
-    CONSTRAINT options_poll_id FOREIGN KEY (poll_id) REFERENCES polls (id) ON DELETE CASCADE
+    CONSTRAINT options_poll_id FOREIGN KEY (poll_id) REFERENCES polls (id) ON DELETE CASCADE,
+    CONSTRAINT unique_option_per_poll UNIQUE (poll_id, name)
 );
+
+CREATE INDEX idx_options_poll_id ON options (poll_id);
 
 -- +goose Down
 DROP TABLE options;

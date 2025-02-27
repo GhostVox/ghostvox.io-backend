@@ -40,11 +40,12 @@ FROM
 UPDATE
     polls
 SET
-    user_id = $1,
-    title = $2,
-    description = $3,
-    expires_at = $4,
-    status = $5
+    user_id = coalesce($1, user_id),
+    title = coalesce($2, title),
+    description = coalesce($3, description),
+    expires_at = coalesce($4, expires_at),
+    status = coalesce($5, status),
+    updated_at = now()
 WHERE
     id = $6 RETURNING *;
 

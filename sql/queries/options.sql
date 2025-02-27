@@ -15,7 +15,7 @@ RETURNING id, name, value, created_at, updated_at, poll_id;
 
 -- name: UpdateOption :one
 UPDATE options
-SET name = $2, value = $3, updated_at = $4
+SET name = coalesce($2, name), value = coalesce($3, value), updated_at = now()
 WHERE id = $1
 RETURNING id, name, value, created_at, updated_at, poll_id;
 

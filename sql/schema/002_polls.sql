@@ -15,6 +15,10 @@ CREATE TABLE polls (
     CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
+CREATE INDEX idx_poll_user ON polls (user_id);
+
+CREATE INDEX idx_poll_status ON polls (status);
+
 -- +goose Down
 DROP TABLE polls;
 

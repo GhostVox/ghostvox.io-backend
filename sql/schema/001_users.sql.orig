@@ -1,8 +1,13 @@
 -- +goose Up
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+<<<<<<< HEAD
+Create table users (
+    id TEXT PRIMARY KEY NOT NULL,
+=======
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4 (),
+>>>>>>> 6b562f9 ( modified the database schema to refelct the decision to implement my own auth)
     created_at TIMESTAMP NOT NULL DEFAULT now (),
     updated_at TIMESTAMP NOT NULL DEFAULT now (),
     email TEXT NOT NULL UNIQUE,
