@@ -133,16 +133,15 @@ func (q *Queries) GetOptionsByPollID(ctx context.Context, pollID uuid.UUID) ([]G
 
 const updateOption = `-- name: UpdateOption :one
 UPDATE options
-SET name = $2, value = $3, updated_at = $4
+SET name = coalesce($2, name), value = coalesce($3, value), updated_at = now()
 WHERE id = $1
 RETURNING id, name, value, created_at, updated_at, poll_id
 `
 
 type UpdateOptionParams struct {
-	ID        uuid.UUID
-	Name      string
-	Value     string
-	UpdatedAt time.Time
+	ID    uuid.UUID
+	Name  string
+	Value string
 }
 
 type UpdateOptionRow struct {
@@ -155,12 +154,7 @@ type UpdateOptionRow struct {
 }
 
 func (q *Queries) UpdateOption(ctx context.Context, arg UpdateOptionParams) (UpdateOptionRow, error) {
-	row := q.db.QueryRowContext(ctx, updateOption,
-		arg.ID,
-		arg.Name,
-		arg.Value,
-		arg.UpdatedAt,
-	)
+	row := q.db.QueryRowContext(ctx, updateOption, arg.ID, arg.Name, arg.Value)
 	var i UpdateOptionRow
 	err := row.Scan(
 		&i.ID,

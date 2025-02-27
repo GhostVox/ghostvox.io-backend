@@ -5,22 +5,17 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"database/sql"
 
+	"github.com/GhostVox/ghostvox.io-backend/internal/config"
 	"github.com/GhostVox/ghostvox.io-backend/internal/database"
 	"github.com/GhostVox/ghostvox.io-backend/internal/handlers"
 	mw "github.com/GhostVox/ghostvox.io-backend/internal/middleware"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
-
-type apiConfig struct {
-	db       *database.Queries
-	platform string
-	port     string
-	mux      *http.ServeMux
-}
 
 func main() {
 
@@ -44,6 +39,31 @@ func main() {
 		log.Fatal("PLATFORM must be set")
 	}
 
+	ghostvoxSecretKey := os.Getenv("GHOSTVOX_SECRET_KEY")
+	if ghostvoxSecretKey == "" {
+		log.Fatal("GHOSTVOX_SECRET_KEY must be set")
+	}
+
+	accesstokenExp := os.Getenv("ACCESS_TOKEN_EXPIRES")
+	if accesstokenExp == "" {
+		log.Fatal("ACCESS_TOKEN_EXPIRES must be set")
+	}
+
+	refreshTokenExp := os.Getenv("REFRESH_TOKEN_EXPIRES")
+	if refreshTokenExp == "" {
+		log.Fatal("REFRESH_TOKEN_EXPIRES must be set")
+	}
+
+	accesstokenExpDur, err := time.ParseDuration(accesstokenExp)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	refreshTokenExpDur, err := time.ParseDuration(refreshTokenExp)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	//Connect to database
 	db, err := sql.Open("postgres", db_URL)
 	if err != nil {
@@ -56,16 +76,21 @@ func main() {
 		log.Fatal(err)
 	}
 	//Configure API struct to pass around
-	cfg := apiConfig{
-		db:   dbConnection,
-		port: port,
+	cfg := &config.APIConfig{
+		DB:                dbConnection,
+		Platform:          platform,
+		Port:              port,
+		AccessTokenExp:    accesstokenExpDur,
+		RefreshTokenExp:   refreshTokenExpDur,
+		GhostvoxSecretKey: ghostvoxSecretKey,
 	}
 	// Initialize handlers
-	rootHandler := handlers.NewRootHandler(cfg.db)
-	pollHandler := handlers.NewPollHandler(cfg.db)
-	voteHandler := handlers.NewVoteHandler(cfg.db)
-	optionHandler := handlers.NewOptionHandler(cfg.db)
-	userHandler := handlers.NewUserHandler(cfg.db)
+	rootHandler := handlers.NewRootHandler(cfg)
+	pollHandler := handlers.NewPollHandler(cfg.DB)
+	voteHandler := handlers.NewVoteHandler(cfg.DB)
+	optionHandler := handlers.NewOptionHandler(cfg)
+	userHandler := handlers.NewUserHandler(cfg)
+	authHandler := handlers.NewAuthHandler(cfg)
 
 	mux := http.NewServeMux()
 	//  start attaching route handlers to cfg.mux
@@ -85,12 +110,18 @@ func main() {
 	mux.HandleFunc("DELETE /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.DeletePoll))
 	// End of poll routes
 
-	// Users route ✅
-	mux.HandleFunc("POST /api/v1/users", mw.LoggingMiddleware(userHandler.CreateUser))
+	//Auth routes
+	mux.HandleFunc("POST /api/v1/auth/login", mw.LoggingMiddleware(authHandler.Login))
+	mux.HandleFunc("POST /api/v1/auth/register", mw.LoggingMiddleware(authHandler.Register))
+	mux.HandleFunc("POST /api/v1/auth/logout", mw.LoggingMiddleware(authHandler.Logout))
+	mux.HandleFunc("POST /api/v1/auth/refresh", mw.LoggingMiddleware(authHandler.Refresh))
 
-	mux.HandleFunc("GET /api/v1/users/{userId}", mw.LoggingMiddleware(userHandler.GetUser))
+	// Users Private route
+	mux.HandleFunc("GET /api/v1/admin/users/{userId}", mw.AdminRole(cfg, mw.LoggingMiddleware(userHandler.GetUser)).ServeHTTP)
 
-	mux.HandleFunc("GET /api/v1/users", mw.LoggingMiddleware(userHandler.GetAllUsers))
+	mux.HandleFunc("GET /api/v1/admin/users", mw.AdminRole(cfg, mw.LoggingMiddleware(userHandler.GetAllUsers)).ServeHTTP)
+
+	// User public route ✅
 
 	mux.HandleFunc("PUT /api/v1/users/{userId}", mw.LoggingMiddleware(userHandler.UpdateUser))
 
@@ -129,12 +160,12 @@ func main() {
 
 	// Create a pointer to the http.Server object and configure it
 	server := &http.Server{
-		Addr:    cfg.port,
+		Addr:    cfg.Port,
 		Handler: mux,
 	}
 
 	// Start the server
-	log.Printf("Server running on http://localhost%s", cfg.port)
+	log.Printf("Server running on http://localhost%s", cfg.Port)
 	log.Fatal(server.ListenAndServe())
 
 }

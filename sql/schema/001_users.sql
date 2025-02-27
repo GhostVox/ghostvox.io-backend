@@ -11,7 +11,6 @@ CREATE TABLE users (
     hashed_password TEXT DEFAULT NULL, -- Nullable for OAuth users
     provider TEXT DEFAULT NULL, -- e.g., 'google', 'github'
     provider_id TEXT DEFAULT NULL, -- Stores OAuth provider’s unique user ID
-    refresh_token TEXT DEFAULT NULL, -- For JWT refresh flow (if needed)
     role TEXT NOT NULL DEFAULT 'user'
 );
 

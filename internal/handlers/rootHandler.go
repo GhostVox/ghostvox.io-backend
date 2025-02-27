@@ -3,20 +3,20 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/GhostVox/ghostvox.io-backend/internal/database"
+	"github.com/GhostVox/ghostvox.io-backend/internal/config"
 )
 
 type RootHandler struct {
-	db *database.Queries
+	cfg *config.APIConfig
 }
 
-func NewRootHandler(db *database.Queries) *RootHandler {
+func NewRootHandler(cfg *config.APIConfig) *RootHandler {
 	return &RootHandler{
-		db: db,
+		cfg: cfg,
 	}
 }
 
-func (db *RootHandler) HandleRoot(w http.ResponseWriter, r *http.Request) {
+func (rh *RootHandler) HandleRoot(w http.ResponseWriter, r *http.Request) {
 
 	type route struct {
 		Path              string `json:"path"`

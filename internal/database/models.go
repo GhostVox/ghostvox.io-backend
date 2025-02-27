@@ -67,7 +67,7 @@ type Option struct {
 
 type Poll struct {
 	ID          uuid.UUID
-	UserID      string
+	UserID      uuid.UUID
 	Title       string
 	Description string
 	CreatedAt   time.Time
@@ -76,15 +76,24 @@ type Poll struct {
 	Status      PollStatus
 }
 
-type User struct {
-	ID        string
+type RefreshToken struct {
+	Token     string
+	UserID    uuid.UUID
 	CreatedAt time.Time
-	UpdatedAt time.Time
-	Email     string
-	FirstName string
-	LastName  sql.NullString
-	UserToken string
-	Role      string
+	ExpiresAt time.Time
+}
+
+type User struct {
+	ID             uuid.UUID
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	Email          string
+	FirstName      string
+	LastName       sql.NullString
+	HashedPassword sql.NullString
+	Provider       sql.NullString
+	ProviderID     sql.NullString
+	Role           string
 }
 
 type Vote struct {
@@ -92,5 +101,5 @@ type Vote struct {
 	PollID    uuid.UUID
 	OptionID  uuid.UUID
 	CreatedAt time.Time
-	UserID    string
+	UserID    uuid.UUID
 }

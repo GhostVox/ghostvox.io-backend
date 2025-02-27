@@ -4,32 +4,39 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"time"
 
+	"github.com/GhostVox/ghostvox.io-backend/internal/auth"
+	"github.com/GhostVox/ghostvox.io-backend/internal/config"
 	"github.com/GhostVox/ghostvox.io-backend/internal/database"
+	"github.com/google/uuid"
 )
 
 type User struct {
-	ID        string `json:"id"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-	Email     string `json:"email"`
-	UserToken string `json:"user_token"`
-	Role      string `json:"role"`
+	Email        string `json:"email,omitempty"`
+	FirstName    string `json:"first_name,omitempty"`
+	LastName     string `json:"last_name,omitempty"`
+	Password     string `json:"password,omitempty"`
+	Provider     string `json:"provider,omitempty"`
+	ProviderID   string `json:"provider_id,omitempty"`
+	RefreshToken string `json:"refresh_token,omitempty"`
+	Role         string `json:"role,omitempty"`
 }
 
 type UserHandler struct {
-	db *database.Queries
+	cfg *config.APIConfig
 }
 
-func NewUserHandler(db *database.Queries) *UserHandler {
+func NewUserHandler(cfg *config.APIConfig) *UserHandler {
 	return &UserHandler{
-		db: db,
+		cfg: cfg,
 	}
 }
 
 func (h *UserHandler) GetAllUsers(w http.ResponseWriter, r *http.Request) {
-	users, err := h.db.GetUsers(r.Context())
+	users, err := h.cfg.DB.GetUsers(r.Context())
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			chooseError(w, http.StatusNotFound, err)
@@ -49,8 +56,12 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 		chooseError(w, http.StatusBadRequest, errors.New("missing id"))
 		return
 	}
-
-	user, err := h.db.GetUserById(r.Context(), id)
+	UserUUID, err := uuid.Parse(id)
+	if err != nil {
+		chooseError(w, http.StatusBadRequest, errors.New("invalid id"))
+		return
+	}
+	user, err := h.cfg.DB.GetUserById(r.Context(), UserUUID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			chooseError(w, http.StatusNotFound, err)
@@ -61,32 +72,6 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondWithJSON(w, http.StatusOK, user)
-	return
-}
-
-func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
-	var user User
-	defer r.Body.Close()
-	err := json.NewDecoder(r.Body).Decode(&user)
-	if err != nil {
-		chooseError(w, http.StatusInternalServerError, err)
-		return
-	}
-
-	userRecord, err := h.db.CreateUser(r.Context(), database.CreateUserParams{
-		ID:        user.ID,
-		Email:     user.Email,
-		LastName:  sql.NullString{String: user.LastName, Valid: user.LastName != ""},
-		FirstName: user.FirstName,
-		Role:      user.Role,
-		UserToken: user.UserToken,
-	})
-	if err != nil {
-		chooseError(w, http.StatusInternalServerError, err)
-		return
-	}
-
-	respondWithJSON(w, http.StatusCreated, userRecord)
 	return
 }
 
@@ -104,24 +89,27 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		chooseError(w, http.StatusInternalServerError, err)
 		return
 	}
-
-	userRecord, err := h.db.GetUserById(r.Context(), id)
+	UserUUID, err := uuid.Parse(id)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			chooseError(w, http.StatusNotFound, err)
-			return
-		}
-		chooseError(w, http.StatusInternalServerError, err)
+		chooseError(w, http.StatusBadRequest, errors.New("invalid id"))
+		return
+	}
+	hashedPassword, err := auth.HashPassword(user.Password)
+	if err != nil {
+		chooseError(w, http.StatusInternalServerError, fmt.Errorf("password hashing failed: %w", err))
 		return
 	}
 
-	updatedUserRecord, err := h.db.UpdateUser(r.Context(), database.UpdateUserParams{
-		ID:        userRecord.ID,
-		Email:     user.Email,
-		LastName:  sql.NullString{String: user.LastName, Valid: user.LastName != ""},
-		FirstName: user.FirstName,
-		Role:      user.Role,
-		UserToken: user.UserToken,
+	updatedUserRecord, err := h.cfg.DB.UpdateUser(r.Context(), database.UpdateUserParams{
+		ID:             UserUUID,
+		Email:          user.Email,
+		FirstName:      user.FirstName,
+		LastName:       NullStringHelper(user.LastName),
+		HashedPassword: NullStringHelper(hashedPassword),
+		Provider:       NullStringHelper(user.Provider),
+		ProviderID:     NullStringHelper(user.ProviderID),
+
+		Role: user.Role,
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -132,7 +120,48 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, updatedUserRecord)
+	refreshToken, err := auth.GenerateRefreshToken()
+	if err != nil {
+		chooseError(w, http.StatusInternalServerError, err)
+		return
+	}
+	h.cfg.DB.UpdateRefreshToken(r.Context(), database.UpdateRefreshTokenParams{
+		UserID: UserUUID,
+		Token:  refreshToken,
+	})
+
+	accessToken, err := auth.GenerateJWTAccessToken(updatedUserRecord.ID, updatedUserRecord.Role, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
+	if err != nil {
+		chooseError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	// Set Refresh Token as HTTP-only Cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    refreshToken,
+		HttpOnly: true,
+		Secure:   true, // Use HTTPS
+		SameSite: http.SameSiteStrictMode,
+		Path:     "/",
+		Expires:  time.Now().Add(h.cfg.RefreshTokenExp), // 30 days
+	})
+
+	// Set Access Token as HTTP-only Cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "access_token",
+		Value:    accessToken,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+		Path:     "/",
+		Expires:  time.Now().Add(h.cfg.AccessTokenExp), // 30 minutes
+	})
+
+	// Also send Access Token in the response header (optional)
+	w.Header().Set("Authorization", "Bearer "+accessToken)
+
+	respondWithJSON(w, http.StatusOK, map[string]string{"message": "User updated successfully"})
 	return
 }
 
@@ -143,7 +172,13 @@ func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.db.DeleteUser(r.Context(), id)
+	userUUID, err := uuid.Parse(id)
+	if err != nil {
+		chooseError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	err = h.cfg.DB.DeleteUser(r.Context(), userUUID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			chooseError(w, http.StatusNotFound, err)
