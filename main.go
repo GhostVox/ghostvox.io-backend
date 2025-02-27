@@ -119,7 +119,6 @@ func main() {
 	mux.Handle("/api/v1/auth/google/login", mw.LoggingMiddleware(googleHandler.GoogleLoginHandler))
 	mux.Handle("/api/v1/auth/google/callback", mw.LoggingMiddleware(googleHandler.GoogleCallbackHandler))
 	// end
-	mux.HandleFunc("POST /api/v1/auth/google", mw.LoggingMiddleware(authHandler.GoogleOAuth))
 	//Auth routes
 	mux.HandleFunc("POST /api/v1/auth/login", mw.LoggingMiddleware(authHandler.Login))
 	mux.HandleFunc("POST /api/v1/auth/register", mw.LoggingMiddleware(authHandler.Register))

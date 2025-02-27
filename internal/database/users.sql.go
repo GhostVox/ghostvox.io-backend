@@ -16,6 +16,7 @@ const createUser = `-- name: CreateUser :one
 INSERT INTO
     users (id,email, first_name, last_name, hashed_password,provider,provider_id,role,picture_url)
 VALUES
+
     ($1, $2, $3, $4, $5,$6,$7,$8,$9)
 RETURNING
     id, created_at, updated_at, email, first_name, last_name, hashed_password, provider, provider_id, role, picture_url

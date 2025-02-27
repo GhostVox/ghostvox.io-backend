@@ -40,12 +40,8 @@ WHERE id = $8 RETURNING *;
 INSERT INTO
     users (id,email, first_name, last_name, hashed_password,provider,provider_id,role,picture_url)
 VALUES
-<<<<<<< HEAD
-    ($1, $2, $3, $4, $5,$6,$7,$8)
 
-=======
     ($1, $2, $3, $4, $5,$6,$7,$8,$9)
->>>>>>> 54a1676 (added a few helper functions for setting cookies and adding generating and adding refresh tokens to my database.)
 RETURNING
     *;
 
