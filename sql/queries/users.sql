@@ -38,7 +38,7 @@ WHERE id = $8 RETURNING *;
 
 -- name: CreateUser :one
 INSERT INTO
-    users (id,email, name, hashed_password,provider,provider_id,role,picture_url)
+    users (id,email, first_name, last_name, hashed_password,provider,provider_id,role,picture_url)
 VALUES
 <<<<<<< HEAD
     ($1, $2, $3, $4, $5,$6,$7,$8)

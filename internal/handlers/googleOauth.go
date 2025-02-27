@@ -132,17 +132,13 @@ func (gh *googleHandler) GoogleCallbackHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	// Check if email already exists (prevents duplicate accounts)
-	_, err = gh.cfg.DB.GetUserByEmail(r.Context(), user.Email)
-	if err == nil {
+	existingUser, err := gh.cfg.DB.GetUserByEmail(r.Context(), user.Email)
+	if err == nil && existingUser.Provider.String != googleProvider {
 		http.Error(w, "Account already exists with a different provider", http.StatusConflict)
 		return
 	}
 
-	// Check if user exists by provider & provider_id
-	userRecord, err := gh.cfg.DB.GetUserByProviderAndProviderId(r.Context(), database.GetUserByProviderAndProviderIdParams{
-		Provider:   NullStringHelper(googleProvider),
-		ProviderID: NullStringHelper(user.ProviderID),
-	})
+	var userRecord database.User
 
 	// If user doesn't exist, create a new one
 	if errors.Is(err, sql.ErrNoRows) {
