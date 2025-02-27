@@ -31,16 +31,21 @@ SET
     provider = COALESCE($5, provider),
     provider_id = COALESCE($6, provider_id),
     role = COALESCE($7, role),
+    picture_url = COALESCE($9, avatar_url),
     updated_at = NOW()
 WHERE id = $8 RETURNING *;
 
 
 -- name: CreateUser :one
 INSERT INTO
-    users (id,email, first_name, last_name, hashed_password,provider,provider_id,role)
+    users (id,email, name, hashed_password,provider,provider_id,role,picture_url)
 VALUES
+<<<<<<< HEAD
     ($1, $2, $3, $4, $5,$6,$7,$8)
 
+=======
+    ($1, $2, $3, $4, $5,$6,$7,$8,$9)
+>>>>>>> 54a1676 (added a few helper functions for setting cookies and adding generating and adding refresh tokens to my database.)
 RETURNING
     *;
 
@@ -49,3 +54,11 @@ DELETE FROM
     users
 WHERE
     id = $1;
+
+-- name: GetUserByProviderAndProviderId :one
+SELECT
+    *
+FROM
+    users
+WHERE
+    provider = $1 AND provider_id = $2;

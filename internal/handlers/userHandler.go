@@ -23,6 +23,7 @@ type User struct {
 	ProviderID   string `json:"provider_id,omitempty"`
 	RefreshToken string `json:"refresh_token,omitempty"`
 	Role         string `json:"role,omitempty"`
+	PictureURL   string `json:"picture,omitempty"`
 }
 
 type UserHandler struct {
@@ -108,8 +109,8 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		HashedPassword: NullStringHelper(hashedPassword),
 		Provider:       NullStringHelper(user.Provider),
 		ProviderID:     NullStringHelper(user.ProviderID),
-
-		Role: user.Role,
+		PictureUrl:     NullStringHelper(user.PictureURL),
+		Role:           user.Role,
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -130,7 +131,7 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		Token:  refreshToken,
 	})
 
-	accessToken, err := auth.GenerateJWTAccessToken(updatedUserRecord.ID, updatedUserRecord.Role, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
+	accessToken, err := auth.GenerateJWTAccessToken(updatedUserRecord.ID, updatedUserRecord.Role, updatedUserRecord.PictureUrl.String, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
 	if err != nil {
 		chooseError(w, http.StatusInternalServerError, err)
 		return

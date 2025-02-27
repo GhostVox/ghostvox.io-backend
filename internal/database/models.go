@@ -94,6 +94,7 @@ type User struct {
 	Provider       sql.NullString
 	ProviderID     sql.NullString
 	Role           string
+	PictureUrl     sql.NullString
 }
 
 type Vote struct {

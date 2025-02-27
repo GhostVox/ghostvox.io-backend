@@ -46,13 +46,6 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate refresh token
-	refreshToken, err := auth.GenerateRefreshToken()
-	if err != nil {
-		chooseError(w, http.StatusInternalServerError, fmt.Errorf("refresh token generation failed: %w", err))
-		return
-	}
-
 	// Create user in the database
 	userRecord, err := h.cfg.DB.CreateUser(r.Context(), database.CreateUserParams{
 		Email:          user.Email,
@@ -61,56 +54,27 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		HashedPassword: NullStringHelper(hashedPassword),
 		Provider:       NullStringHelper(user.Provider),
 		ProviderID:     NullStringHelper(user.ProviderID),
+		PictureUrl:     NullStringHelper(user.PictureURL),
 		Role:           user.Role,
 	})
 	if err != nil {
 		chooseError(w, http.StatusInternalServerError, fmt.Errorf("database user creation failed: %w", err))
 		return
 	}
-	_, err = h.cfg.DB.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
-		UserID:    userRecord.ID,
-		Token:     refreshToken,
-		ExpiresAt: time.Now().Add(h.cfg.RefreshTokenExp),
-	})
+	refreshToken, err := AddRefreshToken(r.Context(), userRecord.ID, h.cfg.DB)
 	if err != nil {
-		chooseError(w, http.StatusInternalServerError, fmt.Errorf("database refresh token creation failed: %w", err))
+		chooseError(w, http.StatusInternalServerError, fmt.Errorf("refresh token creation failed: %w", err))
 		return
 	}
 
 	// Generate Access Token (JWT)
-	accessToken, err := auth.GenerateJWTAccessToken(userRecord.ID, userRecord.Role, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
+	accessToken, err := auth.GenerateJWTAccessToken(userRecord.ID, userRecord.Role, userRecord.PictureUrl.String, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
 	if err != nil {
 		chooseError(w, http.StatusInternalServerError, fmt.Errorf("access token generation failed: %w", err))
 		return
 	}
 
-	// Set Refresh Token as HTTP-only Cookie
-	http.SetCookie(w, &http.Cookie{
-		Name:     "refresh_token",
-		Value:    refreshToken,
-		HttpOnly: true,
-		Secure:   true, // Use HTTPS
-		SameSite: http.SameSiteStrictMode,
-		Path:     "/",
-		Expires:  time.Now().Add(h.cfg.RefreshTokenExp), // 30 days
-	})
-
-	// Set Access Token as HTTP-only Cookie
-	http.SetCookie(w, &http.Cookie{
-		Name:     "access_token",
-		Value:    accessToken,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
-		Path:     "/",
-		Expires:  time.Now().Add(h.cfg.AccessTokenExp), // 30 minutes
-	})
-
-	// Also send Access Token in the response header (optional)
-	w.Header().Set("Authorization", "Bearer "+accessToken)
-
-	// Respond with a success message
-	respondWithJSON(w, http.StatusCreated, map[string]string{"message": "User created successfully"})
+	SetCookiesHelper(w, refreshToken, accessToken, h.cfg)
 
 }
 
@@ -154,39 +118,13 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate Access Token (JWT)
-	accessToken, err := auth.GenerateJWTAccessToken(userRecord.ID, userRecord.Role, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
+	accessToken, err := auth.GenerateJWTAccessToken(userRecord.ID, userRecord.Role, userRecord.PictureUrl.String, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
 	if err != nil {
 		chooseError(w, http.StatusInternalServerError, fmt.Errorf("access token generation failed: %w", err))
 		return
 	}
 
-	// Set Refresh Token as HTTP-only Cookie
-	http.SetCookie(w, &http.Cookie{
-		Name:     "refresh_token",
-		Value:    refreshToken,
-		HttpOnly: true,
-		Secure:   true, // Use HTTPS
-		SameSite: http.SameSiteStrictMode,
-		Path:     "/",
-		Expires:  time.Now().Add(h.cfg.RefreshTokenExp), // 30 days
-	})
-
-	// Set Access Token as HTTP-only Cookie
-	http.SetCookie(w, &http.Cookie{
-		Name:     "access_token",
-		Value:    accessToken,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
-		Path:     "/",
-		Expires:  time.Now().Add(h.cfg.AccessTokenExp), // 30 minutes
-	})
-
-	// Also send Access Token in the response header (optional)
-	w.Header().Set("Authorization", "Bearer "+accessToken)
-
-	// Respond with a success message
-	respondWithJSON(w, http.StatusOK, map[string]string{"message": "User logged in successfully"})
+	SetCookiesHelper(w, refreshToken, accessToken, h.cfg)
 
 }
 
@@ -216,7 +154,7 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate New Access Token
-	accessToken, err := auth.GenerateJWTAccessToken(userRecord.ID, userRecord.Role, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
+	accessToken, err := auth.GenerateJWTAccessToken(userRecord.ID, userRecord.Role, userRecord.PictureUrl.String, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
 	if err != nil {
 		chooseError(w, http.StatusInternalServerError, fmt.Errorf("failed to generate access token: %w", err))
 		return
@@ -232,33 +170,7 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		Token:  newRefreshToken,
 	})
 
-	// Set Access Token as HTTP-only Cookie
-	http.SetCookie(w, &http.Cookie{
-		Name:     "access_token",
-		Value:    accessToken,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
-		Path:     "/",
-		Expires:  time.Now().Add(h.cfg.AccessTokenExp), // 30 minutes
-	})
-
-	// Set Refresh Token as HTTP-only Cookie
-	http.SetCookie(w, &http.Cookie{
-		Name:     "refresh_token",
-		Value:    newRefreshRecord.Token,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
-		Path:     "/",
-		Expires:  time.Now().Add(h.cfg.RefreshTokenExp), // 30 days
-	})
-
-	// Also send Access Token in the response header (optional)
-	w.Header().Set("Authorization", "Bearer "+accessToken)
-
-	// Respond with a success message
-	respondWithJSON(w, http.StatusOK, map[string]string{"message": "Access token refreshed successfully"})
+	SetCookiesHelper(w, newRefreshRecord.Token, accessToken, h.cfg)
 
 }
 
@@ -278,26 +190,6 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Clear Cookies
-	http.SetCookie(w, &http.Cookie{
-		Name:     "refresh_token",
-		Value:    "",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
-		Path:     "/",
-		Expires:  time.Now().Add(-time.Hour), // Expire immediately
-	})
+	SetCookiesHelper(w, "", "", h.cfg)
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     "access_token",
-		Value:    "",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
-		Path:     "/",
-		Expires:  time.Now().Add(-time.Hour), // Expire immediately
-	})
-
-	// Respond with a success message
-	respondWithJSON(w, http.StatusOK, map[string]string{"message": "User logged out successfully"})
 }

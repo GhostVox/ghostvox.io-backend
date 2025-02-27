@@ -13,4 +13,5 @@ type APIConfig struct {
 	AccessTokenExp    time.Duration
 	RefreshTokenExp   time.Duration
 	GhostvoxSecretKey string
+	Mode              string
 }

@@ -14,11 +14,11 @@ import (
 
 const createUser = `-- name: CreateUser :one
 INSERT INTO
-    users (id,email, first_name, last_name, hashed_password,provider,provider_id,role)
+    users (id,email, first_name, last_name, hashed_password,provider,provider_id,role,picture_url)
 VALUES
-    ($1, $2, $3, $4, $5,$6,$7,$8)
+    ($1, $2, $3, $4, $5,$6,$7,$8,$9)
 RETURNING
-    id, created_at, updated_at, email, first_name, last_name, hashed_password, provider, provider_id, role
+    id, created_at, updated_at, email, first_name, last_name, hashed_password, provider, provider_id, role, picture_url
 `
 
 type CreateUserParams struct {
@@ -30,6 +30,7 @@ type CreateUserParams struct {
 	Provider       sql.NullString
 	ProviderID     sql.NullString
 	Role           string
+	PictureUrl     sql.NullString
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
@@ -42,6 +43,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		arg.Provider,
 		arg.ProviderID,
 		arg.Role,
+		arg.PictureUrl,
 	)
 	var i User
 	err := row.Scan(
@@ -55,6 +57,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.Provider,
 		&i.ProviderID,
 		&i.Role,
+		&i.PictureUrl,
 	)
 	return i, err
 }
@@ -73,7 +76,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
 
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT
-    id, created_at, updated_at, email, first_name, last_name, hashed_password, provider, provider_id, role
+    id, created_at, updated_at, email, first_name, last_name, hashed_password, provider, provider_id, role, picture_url
 FROM
     users
 WHERE
@@ -94,13 +97,14 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.Provider,
 		&i.ProviderID,
 		&i.Role,
+		&i.PictureUrl,
 	)
 	return i, err
 }
 
 const getUserById = `-- name: GetUserById :one
 SELECT
-    id, created_at, updated_at, email, first_name, last_name, hashed_password, provider, provider_id, role
+    id, created_at, updated_at, email, first_name, last_name, hashed_password, provider, provider_id, role, picture_url
 FROM
     users
 WHERE
@@ -121,13 +125,47 @@ func (q *Queries) GetUserById(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.Provider,
 		&i.ProviderID,
 		&i.Role,
+		&i.PictureUrl,
+	)
+	return i, err
+}
+
+const getUserByProviderAndProviderId = `-- name: GetUserByProviderAndProviderId :one
+SELECT
+    id, created_at, updated_at, email, first_name, last_name, hashed_password, provider, provider_id, role, picture_url
+FROM
+    users
+WHERE
+    provider = $1 AND provider_id = $2
+`
+
+type GetUserByProviderAndProviderIdParams struct {
+	Provider   sql.NullString
+	ProviderID sql.NullString
+}
+
+func (q *Queries) GetUserByProviderAndProviderId(ctx context.Context, arg GetUserByProviderAndProviderIdParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserByProviderAndProviderId, arg.Provider, arg.ProviderID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Email,
+		&i.FirstName,
+		&i.LastName,
+		&i.HashedPassword,
+		&i.Provider,
+		&i.ProviderID,
+		&i.Role,
+		&i.PictureUrl,
 	)
 	return i, err
 }
 
 const getUsers = `-- name: GetUsers :many
 Select
-    id, created_at, updated_at, email, first_name, last_name, hashed_password, provider, provider_id, role
+    id, created_at, updated_at, email, first_name, last_name, hashed_password, provider, provider_id, role, picture_url
 FROM
     users
 `
@@ -152,6 +190,7 @@ func (q *Queries) GetUsers(ctx context.Context) ([]User, error) {
 			&i.Provider,
 			&i.ProviderID,
 			&i.Role,
+			&i.PictureUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -177,8 +216,9 @@ SET
     provider = COALESCE($5, provider),
     provider_id = COALESCE($6, provider_id),
     role = COALESCE($7, role),
+    picture_url = COALESCE($9, avatar_url),
     updated_at = NOW()
-WHERE id = $8 RETURNING id, created_at, updated_at, email, first_name, last_name, hashed_password, provider, provider_id, role
+WHERE id = $8 RETURNING id, created_at, updated_at, email, first_name, last_name, hashed_password, provider, provider_id, role, picture_url
 `
 
 type UpdateUserParams struct {
@@ -190,6 +230,7 @@ type UpdateUserParams struct {
 	ProviderID     sql.NullString
 	Role           string
 	ID             uuid.UUID
+	PictureUrl     sql.NullString
 }
 
 func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {
@@ -202,6 +243,7 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		arg.ProviderID,
 		arg.Role,
 		arg.ID,
+		arg.PictureUrl,
 	)
 	var i User
 	err := row.Scan(
@@ -215,6 +257,7 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.Provider,
 		&i.ProviderID,
 		&i.Role,
+		&i.PictureUrl,
 	)
 	return i, err
 }

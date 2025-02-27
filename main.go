@@ -53,6 +53,10 @@ func main() {
 	if refreshTokenExp == "" {
 		log.Fatal("REFRESH_TOKEN_EXPIRES must be set")
 	}
+	mode := os.Getenv("MODE")
+	if mode != "" {
+		log.Fatalf("Error loading MODE: %v", err)
+	}
 
 	accesstokenExpDur, err := time.ParseDuration(accesstokenExp)
 	if err != nil {
@@ -83,6 +87,7 @@ func main() {
 		AccessTokenExp:    accesstokenExpDur,
 		RefreshTokenExp:   refreshTokenExpDur,
 		GhostvoxSecretKey: ghostvoxSecretKey,
+		Mode:              mode,
 	}
 	// Initialize handlers
 	rootHandler := handlers.NewRootHandler(cfg)
@@ -93,8 +98,8 @@ func main() {
 	authHandler := handlers.NewAuthHandler(cfg)
 
 	mux := http.NewServeMux()
+	wrappedMux := mw.CorsMiddleware(mux)
 	//  start attaching route handlers to cfg.mux
-
 	// Redirects users to the root of the API and returns route endpoints for the API
 	mux.HandleFunc("/api/v1/", mw.LoggingMiddleware(rootHandler.HandleRoot))
 
@@ -161,7 +166,7 @@ func main() {
 	// Create a pointer to the http.Server object and configure it
 	server := &http.Server{
 		Addr:    cfg.Port,
-		Handler: mux,
+		Handler: wrappedMux,
 	}
 
 	// Start the server
