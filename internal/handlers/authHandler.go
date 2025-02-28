@@ -45,25 +45,10 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		chooseError(w, http.StatusInternalServerError, fmt.Errorf("password hashing failed: %w", err))
 		return
 	}
-
-	// Create user in the database
-	userRecord, err := h.cfg.DB.CreateUser(r.Context(), database.CreateUserParams{
-		Email:          user.Email,
-		FirstName:      user.FirstName,
-		LastName:       NullStringHelper(user.LastName),
-		HashedPassword: NullStringHelper(hashedPassword),
-		Provider:       NullStringHelper(user.Provider),
-		ProviderID:     NullStringHelper(user.ProviderID),
-		PictureUrl:     NullStringHelper(user.PictureURL),
-		Role:           user.Role,
-	})
+	user.Password = hashedPassword
+	refreshToken, userRecord, err := addUserAndRefreshToken(r.Context(), h.cfg.DB, h.cfg.Queries, user)
 	if err != nil {
-		chooseError(w, http.StatusInternalServerError, fmt.Errorf("database user creation failed: %w", err))
-		return
-	}
-	refreshToken, err := AddRefreshToken(r.Context(), userRecord.ID, h.cfg.DB)
-	if err != nil {
-		chooseError(w, http.StatusInternalServerError, fmt.Errorf("refresh token creation failed: %w", err))
+		chooseError(w, http.StatusInternalServerError, fmt.Errorf("user creation failed: %w", err))
 		return
 	}
 
@@ -88,7 +73,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userRecord, err := h.cfg.DB.GetUserByEmail(r.Context(), login.Email)
+	userRecord, err := h.cfg.Queries.GetUserByEmail(r.Context(), login.Email)
 	if err != nil {
 		chooseError(w, http.StatusUnauthorized, fmt.Errorf("invalid credentials: %w", err))
 		return
@@ -107,7 +92,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create Refresh Token in the database
-	_, err = h.cfg.DB.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
+	_, err = h.cfg.Queries.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
 		UserID:    userRecord.ID,
 		Token:     refreshToken,
 		ExpiresAt: time.Now().Add(h.cfg.RefreshTokenExp),
@@ -135,7 +120,7 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	refreshTokenRecord, err := h.cfg.DB.GetRefreshToken(r.Context(), refreshCookie.Value)
+	refreshTokenRecord, err := h.cfg.Queries.GetRefreshToken(r.Context(), refreshCookie.Value)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			chooseError(w, http.StatusUnauthorized, fmt.Errorf("invalid refresh token"))
@@ -144,7 +129,7 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userRecord, err := h.cfg.DB.GetUserById(r.Context(), refreshTokenRecord.UserID)
+	userRecord, err := h.cfg.Queries.GetUserById(r.Context(), refreshTokenRecord.UserID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			chooseError(w, http.StatusUnauthorized, fmt.Errorf("invalid user"))
@@ -165,7 +150,7 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newRefreshRecord, err := h.cfg.DB.UpdateRefreshToken(r.Context(), database.UpdateRefreshTokenParams{
+	newRefreshRecord, err := h.cfg.Queries.UpdateRefreshToken(r.Context(), database.UpdateRefreshTokenParams{
 		UserID: userRecord.ID,
 		Token:  newRefreshToken,
 	})
@@ -183,7 +168,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete Refresh Token from Database
-	err = h.cfg.DB.DeleteRefreshToken(r.Context(), refreshToken.Value)
+	err = h.cfg.Queries.DeleteRefreshToken(r.Context(), refreshToken.Value)
 	if err != nil {
 		chooseError(w, http.StatusInternalServerError, fmt.Errorf("database refresh token deletion failed: %w", err))
 		return

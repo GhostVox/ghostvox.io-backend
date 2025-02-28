@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/GhostVox/ghostvox.io-backend/internal/auth"
@@ -14,7 +13,6 @@ import (
 	"github.com/GhostVox/ghostvox.io-backend/internal/database"
 
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 )
 
 const (
@@ -22,34 +20,16 @@ const (
 	githubProvider = "github"
 )
 
-type OAuthUser struct {
-	Email        string `json:"email,omitempty"`
-	Name         string `json:"name,omitempty"`
-	Password     string `json:"password,omitempty"`
-	Provider     string `json:"provider,omitempty"`
-	ProviderID   string `json:"id,omitempty"`
-	RefreshToken string `json:"refresh_token,omitempty"`
-	Role         string `json:"role,omitempty"`
-	PictureURL   string `json:"picture,omitempty"`
-}
-
-// OAuth2 configuration
-var googleOAuthConfig = &oauth2.Config{
-	ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
-	ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
-	RedirectURL:  "http://localhost:3000/auth/callback",
-	Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"},
-	Endpoint:     google.Endpoint,
-}
-
 type googleHandler struct {
-	cfg *config.APIConfig
+	cfg               *config.APIConfig
+	googleOAuthConfig *oauth2.Config
 }
 
-// GoogleHandler
-func NewGoogleHandler(cfg *config.APIConfig) *googleHandler {
+// NewGoogleHandler
+func NewGoogleHandler(cfg *config.APIConfig, googleOAuthConfig *oauth2.Config) *googleHandler {
 	return &googleHandler{
-		cfg: cfg,
+		cfg:               cfg,
+		googleOAuthConfig: googleOAuthConfig,
 	}
 }
 
@@ -69,7 +49,7 @@ func (gh *googleHandler) GoogleLoginHandler(w http.ResponseWriter, r *http.Reque
 	})
 
 	// Redirect user to Google's OAuth URL with the state
-	url := googleOAuthConfig.AuthCodeURL(state)
+	url := gh.googleOAuthConfig.AuthCodeURL(state)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
@@ -101,14 +81,14 @@ func (gh *googleHandler) GoogleCallbackHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	// Exchange auth code for access token
-	token, err := googleOAuthConfig.Exchange(context.Background(), code)
+	token, err := gh.googleOAuthConfig.Exchange(context.Background(), code)
 	if err != nil {
 		http.Error(w, "Failed to exchange token: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	// Fetch user info from Google
-	client := googleOAuthConfig.Client(context.Background(), token)
+	client := gh.googleOAuthConfig.Client(context.Background(), token)
 	resp, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo")
 	if err != nil {
 		http.Error(w, "Failed to get user info: "+err.Error(), http.StatusInternalServerError)
@@ -117,53 +97,55 @@ func (gh *googleHandler) GoogleCallbackHandler(w http.ResponseWriter, r *http.Re
 	defer resp.Body.Close()
 
 	// Decode JSON response
-	var user OAuthUser
-	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
+	var oAuthUser config.OAuthUser
+	if err := json.NewDecoder(resp.Body).Decode(&oAuthUser); err != nil {
 		http.Error(w, "Failed to decode user info: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	// Split Name into First & Last Name
-	nameParts := strings.Split(user.Name, " ")
+	nameParts := strings.Split(oAuthUser.Name, " ")
 	firstName := nameParts[0]
 	lastName := ""
 	if len(nameParts) > 1 {
 		lastName = nameParts[1]
 	}
 
+	user := User{
+		FirstName:  firstName,
+		LastName:   lastName,
+		Email:      oAuthUser.Email,
+		Provider:   googleProvider,
+		PictureURL: oAuthUser.PictureURL,
+	}
+
 	// Check if email already exists (prevents duplicate accounts)
-	existingUser, err := gh.cfg.DB.GetUserByEmail(r.Context(), user.Email)
+	existingUser, err := gh.cfg.Queries.GetUserByEmail(r.Context(), user.Email)
 	if err == nil && existingUser.Provider.String != googleProvider {
 		http.Error(w, "Account already exists with a different provider", http.StatusConflict)
 		return
 	}
 
 	var userRecord database.User
-
+	var refreshTokenString string
 	// If user doesn't exist, create a new one
 	if errors.Is(err, sql.ErrNoRows) {
-		newUserRecord, err := gh.cfg.DB.CreateUser(r.Context(), database.CreateUserParams{
-			Email:      user.Email,
-			FirstName:  firstName,
-			LastName:   NullStringHelper(lastName),
-			Provider:   NullStringHelper(googleProvider),
-			ProviderID: NullStringHelper(user.ProviderID),
-			PictureUrl: NullStringHelper(user.PictureURL),
-		})
+		refreshToken, newUserRecord, err := addUserAndRefreshToken(r.Context(), gh.cfg.DB, gh.cfg.Queries, user)
 		if err != nil {
-			http.Error(w, "Failed to create user: "+err.Error(), http.StatusInternalServerError)
+			http.Error(w, "Failed to add user and refresh token: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 		userRecord = newUserRecord
+		refreshTokenString = refreshToken
+	} else {
+		refreshToken, err := auth.GenerateRefreshToken()
+		if err != nil {
+			http.Error(w, "Failed to generate refresh token: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		userRecord = existingUser
+		refreshTokenString = refreshToken
 	}
-
-	// Generate Refresh Token
-	refreshToken, err := AddRefreshToken(r.Context(), userRecord.ID, gh.cfg.DB)
-	if err != nil {
-		http.Error(w, "Failed to add refresh token: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	// Generate Access Token
 	accessToken, err := auth.GenerateJWTAccessToken(userRecord.ID, userRecord.Role, userRecord.PictureUrl.String, gh.cfg.GhostvoxSecretKey, gh.cfg.AccessTokenExp)
 	if err != nil {
@@ -172,5 +154,5 @@ func (gh *googleHandler) GoogleCallbackHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	// Set cookies
-	SetCookiesHelper(w, refreshToken, accessToken, gh.cfg)
+	SetCookiesHelper(w, refreshTokenString, accessToken, gh.cfg)
 }

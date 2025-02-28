@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	c "context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -32,7 +31,7 @@ func NewPollHandler(db *database.Queries) *pollHandler {
 
 // Polls route
 func (h *pollHandler) GetAllPolls(w http.ResponseWriter, r *http.Request) {
-	polls, err := h.db.GetAllPolls(c.Background())
+	polls, err := h.db.GetAllPolls(r.Context())
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			chooseError(w, http.StatusNotFound, err)
@@ -60,7 +59,7 @@ func (h *pollHandler) GetPoll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	poll, err := h.db.GetPoll(c.Background(), pollUUID)
+	poll, err := h.db.GetPoll(r.Context(), pollUUID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			chooseError(w, http.StatusNotFound, err)
@@ -92,7 +91,7 @@ func (h *pollHandler) CreatePoll(w http.ResponseWriter, r *http.Request) {
 		expiresAt = time.Now().UTC().Add(time.Duration(24 * time.Hour))
 	}
 
-	pollRecord, err := h.db.CreatePoll(c.Background(), database.CreatePollParams{
+	pollRecord, err := h.db.CreatePoll(r.Context(), database.CreatePollParams{
 		UserID:      newPoll.UserID,
 		Description: newPoll.Description,
 		Title:       newPoll.Title,
@@ -135,7 +134,7 @@ func (h *pollHandler) UpdatePoll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pollRecord, err := h.db.UpdatePoll(c.Background(), database.UpdatePollParams{
+	pollRecord, err := h.db.UpdatePoll(r.Context(), database.UpdatePollParams{
 		ID:          pollUUID,
 		UserID:      newPoll.UserID,
 		Description: newPoll.Description,
@@ -171,7 +170,7 @@ func (h *pollHandler) DeletePoll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.db.DeletePoll(c.Background(), pollUUID)
+	err = h.db.DeletePoll(r.Context(), pollUUID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			chooseError(w, http.StatusNotFound, err)

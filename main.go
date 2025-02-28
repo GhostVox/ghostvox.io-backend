@@ -15,6 +15,8 @@ import (
 	mw "github.com/GhostVox/ghostvox.io-backend/internal/middleware"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 )
 
 func main() {
@@ -53,9 +55,21 @@ func main() {
 	if refreshTokenExp == "" {
 		log.Fatal("REFRESH_TOKEN_EXPIRES must be set")
 	}
+	googleClientID := os.Getenv("GOOGLE_CLIENT_ID")
+	if googleClientID == "" {
+		log.Fatal("GOOGLE_CLIENT_ID must be set")
+	}
+	googleClientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
+	if googleClientSecret == "" {
+		log.Fatal("GOOGLE_CLIENT_SECRET must be set")
+	}
+	googleRedirectURI := os.Getenv("GOOGLE_REDIRECT_URI")
+	if googleRedirectURI == "" {
+		log.Fatal("GOOGLE_REDIRECT_URI must be set")
+	}
 	mode := os.Getenv("MODE")
-	if mode != "" {
-		log.Fatalf("Error loading MODE: %v", err)
+	if mode == "" {
+		log.Fatal("MODE must be set")
 	}
 
 	accesstokenExpDur, err := time.ParseDuration(accesstokenExp)
@@ -81,7 +95,8 @@ func main() {
 	}
 	//Configure API struct to pass around
 	cfg := &config.APIConfig{
-		DB:                dbConnection,
+		DB:                db,
+		Queries:           dbConnection,
 		Platform:          platform,
 		Port:              port,
 		AccessTokenExp:    accesstokenExpDur,
@@ -89,14 +104,23 @@ func main() {
 		GhostvoxSecretKey: ghostvoxSecretKey,
 		Mode:              mode,
 	}
+	// OAuth2 configuration
+	var googleOAuthConfig = &oauth2.Config{
+		ClientID:     googleClientID,
+		ClientSecret: googleClientSecret,
+		RedirectURL:  googleRedirectURI,
+		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"},
+		Endpoint:     google.Endpoint,
+	}
 	// Initialize handlers
 	rootHandler := handlers.NewRootHandler(cfg)
-	pollHandler := handlers.NewPollHandler(cfg.DB)
-	voteHandler := handlers.NewVoteHandler(cfg.DB)
+	pollHandler := handlers.NewPollHandler(cfg.Queries)
+	voteHandler := handlers.NewVoteHandler(cfg.Queries)
 	optionHandler := handlers.NewOptionHandler(cfg)
 	userHandler := handlers.NewUserHandler(cfg)
 	authHandler := handlers.NewAuthHandler(cfg)
-	googleHandler := handlers.NewGoogleHandler(cfg)
+	googleHandler := handlers.NewGoogleHandler(cfg, googleOAuthConfig)
+	adminHandler := handlers.NewAdminHandler(cfg)
 
 	mux := http.NewServeMux()
 	wrappedMux := mw.CorsMiddleware(mux)
@@ -116,8 +140,8 @@ func main() {
 	mux.HandleFunc("DELETE /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.DeletePoll))
 	// End of poll routes
 	// OAuth routes
-	mux.Handle("/api/v1/auth/google/login", mw.LoggingMiddleware(googleHandler.GoogleLoginHandler))
-	mux.Handle("/api/v1/auth/google/callback", mw.LoggingMiddleware(googleHandler.GoogleCallbackHandler))
+	mux.HandleFunc("/api/v1/auth/google/login", mw.LoggingMiddleware(googleHandler.GoogleLoginHandler))
+	mux.HandleFunc("/api/v1/auth/google/callback", mw.LoggingMiddleware(googleHandler.GoogleCallbackHandler))
 	// end
 	//Auth routes
 	mux.HandleFunc("POST /api/v1/auth/login", mw.LoggingMiddleware(authHandler.Login))
@@ -126,9 +150,9 @@ func main() {
 	mux.HandleFunc("POST /api/v1/auth/refresh", mw.LoggingMiddleware(authHandler.Refresh))
 
 	// Users Private route
-	mux.HandleFunc("GET /api/v1/admin/users/{userId}", mw.AdminRole(cfg, mw.LoggingMiddleware(userHandler.GetUser)).ServeHTTP)
+	mux.HandleFunc("GET /api/v1/admin/users/{userId}", mw.AdminRole(cfg, mw.LoggingMiddleware(adminHandler.GetUser)).ServeHTTP)
 
-	mux.HandleFunc("GET /api/v1/admin/users", mw.AdminRole(cfg, mw.LoggingMiddleware(userHandler.GetAllUsers)).ServeHTTP)
+	mux.HandleFunc("GET /api/v1/admin/users", mw.AdminRole(cfg, mw.LoggingMiddleware(adminHandler.GetAllUsers)).ServeHTTP)
 
 	// User public route ✅
 

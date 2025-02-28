@@ -69,7 +69,7 @@ func (vh *voteHandler) CreateVote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	voteRecord, err := vh.db.CreateVote(context.Background(), database.CreateVoteParams{
+	voteRecord, err := vh.db.CreateVote(r.Context(), database.CreateVoteParams{
 		PollID:   pollUUID,
 		OptionID: optionUUID,
 		UserID:   vote.UserId,
@@ -96,7 +96,7 @@ func (vh *voteHandler) DeleteVote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = vh.db.DeleteVoteByID(context.Background(), voteUUID)
+	err = vh.db.DeleteVoteByID(r.Context(), voteUUID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			chooseError(w, http.StatusNotFound, err)

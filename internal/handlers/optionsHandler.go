@@ -42,7 +42,7 @@ func (oh *optionHandler) GetOptionByID(w http.ResponseWriter, r *http.Request) {
 		chooseError(w, http.StatusBadRequest, errors.New("invalid option id"))
 		return
 	}
-	optionRecord, err := oh.cfg.DB.GetOptionByID(r.Context(), optionUUID)
+	optionRecord, err := oh.cfg.Queries.GetOptionByID(r.Context(), optionUUID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			chooseError(w, http.StatusNotFound, errors.New("option not found"))
@@ -67,7 +67,7 @@ func (oh *optionHandler) GetOptionsByPollID(w http.ResponseWriter, r *http.Reque
 		chooseError(w, http.StatusBadRequest, errors.New("invalid poll id"))
 		return
 	}
-	options, err := oh.cfg.DB.GetOptionsByPollID(r.Context(), pollUUID)
+	options, err := oh.cfg.Queries.GetOptionsByPollID(r.Context(), pollUUID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			chooseError(w, http.StatusNotFound, errors.New("options not found"))
@@ -102,7 +102,7 @@ func (oh *optionHandler) CreateOptions(w http.ResponseWriter, r *http.Request) {
 	}
 	OptionRecords := []database.CreateOptionRow{}
 	for _, option := range pollOptions.Options {
-		optionRecord, err := oh.cfg.DB.CreateOption(r.Context(), database.CreateOptionParams{
+		optionRecord, err := oh.cfg.Queries.CreateOption(r.Context(), database.CreateOptionParams{
 			Name:   option.Name,
 			Value:  option.Value,
 			PollID: pollUUID,
@@ -147,7 +147,7 @@ func (oh *optionHandler) UpdateOption(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	optionRecord, err := oh.cfg.DB.UpdateOption(r.Context(), database.UpdateOptionParams{
+	optionRecord, err := oh.cfg.Queries.UpdateOption(r.Context(), database.UpdateOptionParams{
 		ID:    optionUUID,
 		Name:  option.Name,
 		Value: option.Value,
@@ -177,7 +177,7 @@ func (oh *optionHandler) DeleteOption(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = oh.cfg.DB.DeleteOption(r.Context(), optionUUID)
+	err = oh.cfg.Queries.DeleteOption(r.Context(), optionUUID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			chooseError(w, http.StatusNotFound, err)
