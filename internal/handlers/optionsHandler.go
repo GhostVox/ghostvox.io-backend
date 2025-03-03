@@ -34,21 +34,21 @@ func NewOptionHandler(cfg *config.APIConfig) *optionHandler {
 func (oh *optionHandler) GetOptionByID(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("optionId")
 	if id == "" {
-		chooseError(w, http.StatusBadRequest, errors.New("option id is required"))
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Missing option id pathvalue", errors.New("Missing option id pathvalue"))
 		return
 	}
 	optionUUID, err := uuid.Parse(id)
 	if err != nil {
-		chooseError(w, http.StatusBadRequest, errors.New("invalid option id"))
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid option id", errors.New("Invalid option id"))
 		return
 	}
 	optionRecord, err := oh.cfg.Queries.GetOptionByID(r.Context(), optionUUID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			chooseError(w, http.StatusNotFound, errors.New("option not found"))
+			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "Option not found", err)
 			return
 		}
-		chooseError(w, http.StatusInternalServerError, err)
+		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
 		return
 	}
 	respondWithJSON(w, http.StatusOK, optionRecord)
@@ -59,21 +59,21 @@ func (oh *optionHandler) GetOptionByID(w http.ResponseWriter, r *http.Request) {
 func (oh *optionHandler) GetOptionsByPollID(w http.ResponseWriter, r *http.Request) {
 	pollID := r.PathValue("pollId")
 	if pollID == "" {
-		chooseError(w, http.StatusBadRequest, errors.New("poll id is required"))
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Poll id is required", errors.New("Poll id is required"))
 		return
 	}
 	pollUUID, err := uuid.Parse(pollID)
 	if pollUUID == uuid.Nil {
-		chooseError(w, http.StatusBadRequest, errors.New("invalid poll id"))
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid poll id", errors.New("Invalid poll id"))
 		return
 	}
 	options, err := oh.cfg.Queries.GetOptionsByPollID(r.Context(), pollUUID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			chooseError(w, http.StatusNotFound, errors.New("options not found"))
+			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "Options not found", err)
 			return
 		}
-		chooseError(w, http.StatusInternalServerError, err)
+		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
 		return
 	}
 	respondWithJSON(w, http.StatusOK, options)
@@ -84,12 +84,12 @@ func (oh *optionHandler) GetOptionsByPollID(w http.ResponseWriter, r *http.Reque
 func (oh *optionHandler) CreateOptions(w http.ResponseWriter, r *http.Request) {
 	pollId := r.PathValue("pollId")
 	if pollId == "" {
-		chooseError(w, http.StatusBadRequest, errors.New("poll id is required"))
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Poll id is required", errors.New("Poll id is required"))
 		return
 	}
 	pollUUID, err := uuid.Parse(pollId)
 	if pollUUID == uuid.Nil {
-		chooseError(w, http.StatusBadRequest, errors.New("invalid poll id"))
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid poll id", errors.New("Invalid poll id"))
 		return
 	}
 
@@ -97,7 +97,7 @@ func (oh *optionHandler) CreateOptions(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	err = json.NewDecoder(r.Body).Decode(&pollOptions)
 	if err != nil {
-		chooseError(w, http.StatusBadRequest, err)
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid request body", err)
 		return
 	}
 	OptionRecords := []database.CreateOptionRow{}
@@ -109,10 +109,10 @@ func (oh *optionHandler) CreateOptions(w http.ResponseWriter, r *http.Request) {
 		})
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				chooseError(w, http.StatusConflict, err)
+				respondWithError(w, http.StatusConflict, http.StatusText(http.StatusConflict), "Option already exists", err)
 				return
 			}
-			chooseError(w, http.StatusInternalServerError, err)
+			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
 			return
 		}
 		OptionRecords = append(OptionRecords, optionRecord)
@@ -124,12 +124,12 @@ func (oh *optionHandler) CreateOptions(w http.ResponseWriter, r *http.Request) {
 func (oh *optionHandler) UpdateOption(w http.ResponseWriter, r *http.Request) {
 	pollId := r.PathValue("pollId")
 	if pollId == "" {
-		chooseError(w, http.StatusBadRequest, errors.New("poll id is required"))
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Poll id is required", errors.New("Poll id is required"))
 		return
 	}
 	pollUUID, err := uuid.Parse(pollId)
 	if pollUUID == uuid.Nil {
-		chooseError(w, http.StatusBadRequest, errors.New("invalid poll id"))
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid poll id", errors.New("Invalid poll id"))
 		return
 	}
 
@@ -137,13 +137,13 @@ func (oh *optionHandler) UpdateOption(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	err = json.NewDecoder(r.Body).Decode(&option)
 	if err != nil {
-		chooseError(w, http.StatusBadRequest, err)
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid request body", err)
 		return
 	}
 
 	optionUUID, err := uuid.Parse(option.ID)
 	if err != nil {
-		chooseError(w, http.StatusBadRequest, err)
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid option id", err)
 		return
 	}
 
@@ -154,10 +154,10 @@ func (oh *optionHandler) UpdateOption(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			chooseError(w, http.StatusNotFound, err)
+			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "Option not found", err)
 			return
 		}
-		chooseError(w, http.StatusInternalServerError, err)
+		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
 		return
 	}
 
@@ -168,22 +168,22 @@ func (oh *optionHandler) UpdateOption(w http.ResponseWriter, r *http.Request) {
 func (oh *optionHandler) DeleteOption(w http.ResponseWriter, r *http.Request) {
 	optionId := r.PathValue("optionId")
 	if optionId == "" {
-		chooseError(w, http.StatusBadRequest, errors.New("option id is required"))
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Option id is required", errors.New("Option id is required"))
 		return
 	}
 	optionUUID, err := uuid.Parse(optionId)
 	if optionUUID == uuid.Nil {
-		chooseError(w, http.StatusBadRequest, errors.New("invalid option id"))
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid option id", errors.New("Invalid option id"))
 		return
 	}
 
 	err = oh.cfg.Queries.DeleteOption(r.Context(), optionUUID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			chooseError(w, http.StatusNotFound, err)
+			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "Option not found", err)
 			return
 		}
-		chooseError(w, http.StatusInternalServerError, err)
+		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
 		return
 	}
 

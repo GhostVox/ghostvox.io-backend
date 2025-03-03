@@ -7,9 +7,10 @@ import (
 
 	"github.com/GhostVox/ghostvox.io-backend/internal/auth"
 	"github.com/GhostVox/ghostvox.io-backend/internal/database"
+	"github.com/lib/pq"
 )
 
-func addUserAndRefreshToken(ctx context.Context, db *sql.DB, queries *database.Queries, user User) (string, database.User, error) {
+func addUserAndRefreshToken(ctx context.Context, db *sql.DB, queries *database.Queries, user *User) (string, database.User, error) {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return "", database.User{}, err
@@ -28,6 +29,11 @@ func addUserAndRefreshToken(ctx context.Context, db *sql.DB, queries *database.Q
 		Role:           user.Role,
 	})
 	if err != nil {
+		if err, ok := err.(*pq.Error); ok {
+			if err.Code == "23505" {
+				return "", database.User{}, errors.New("Email already exists")
+			}
+		}
 		return "", database.User{}, errors.New("Failed to create user")
 	}
 
@@ -37,8 +43,15 @@ func addUserAndRefreshToken(ctx context.Context, db *sql.DB, queries *database.Q
 		Token:  refreshTokenString,
 	})
 	if err != nil {
+
 		return "", database.User{}, errors.New("Failed add refresh token to db")
 	}
+
+	err = tx.Commit()
+	if err != nil {
+		return "", database.User{}, errors.New("Failed to commit transaction")
+	}
+
 	return refreshTokenString, userRecord, nil
 }
 
@@ -73,5 +86,11 @@ func updateUserAndRefreshToken(ctx context.Context, db *sql.DB, queries *databas
 	if err != nil {
 		return "", database.User{}, errors.New("Failed add refresh token to db")
 	}
+
+	err = tx.Commit()
+	if err != nil {
+		return "", database.User{}, errors.New("Failed to commit transaction")
+	}
+
 	return refreshTokenString, userRecord, nil
 }

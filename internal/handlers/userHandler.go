@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/GhostVox/ghostvox.io-backend/internal/auth"
@@ -38,10 +37,10 @@ func NewUserHandler(cfg *config.APIConfig) *UserHandler {
 // 	users, err := h.cfg.Queries.GetUsers(r.Context())
 // 	if err != nil {
 // 		if errors.Is(err, sql.ErrNoRows) {
-// 			chooseError(w, http.StatusNotFound, err)
+// 			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), err)
 // 			return
 // 		}
-// 		chooseError(w, http.StatusInternalServerError, err)
+// 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), err)
 // 		return
 // 	}
 
@@ -52,21 +51,21 @@ func NewUserHandler(cfg *config.APIConfig) *UserHandler {
 // func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 // 	id := r.PathValue("userId")
 // 	if id == "" {
-// 		chooseError(w, http.StatusBadRequest, errors.New("missing id"))
+// 		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), errors.New("missing id"))
 // 		return
 // 	}
 // 	UserUUID, err := uuid.Parse(id)
 // 	if err != nil {
-// 		chooseError(w, http.StatusBadRequest, errors.New("invalid id"))
+// 		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), errors.New("invalid id"))
 // 		return
 // 	}
 // 	user, err := h.cfg.Queries.GetUserById(r.Context(), UserUUID)
 // 	if err != nil {
 // 		if errors.Is(err, sql.ErrNoRows) {
-// 			chooseError(w, http.StatusNotFound, err)
+// 			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), err)
 // 			return
 // 		}
-// 		chooseError(w, http.StatusInternalServerError, err)
+// 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal Server Error", err)
 // 		return
 // 	}
 
@@ -77,12 +76,12 @@ func NewUserHandler(cfg *config.APIConfig) *UserHandler {
 func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	accessTokenCookie, err := r.Cookie("access_token")
 	if err != nil {
-		chooseError(w, http.StatusUnauthorized, errors.New("missing access token"))
+		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), "Missing Access Token", err)
 		return
 	}
 	claims, err := auth.ValidateJWT(accessTokenCookie.Value, h.cfg.GhostvoxSecretKey)
 	if err != nil {
-		chooseError(w, http.StatusUnauthorized, err)
+		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), "Unauthorized", err)
 		return
 	}
 
@@ -90,30 +89,30 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	err = json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
-		chooseError(w, http.StatusInternalServerError, err)
+		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal Server Error", err)
 		return
 	}
 	UserUUID, err := uuid.Parse(claims.Subject)
 	if err != nil {
-		chooseError(w, http.StatusBadRequest, errors.New("invalid id"))
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid ID", err)
 		return
 	}
 	hashedPassword, err := auth.HashPassword(user.Password)
 	if err != nil {
-		chooseError(w, http.StatusInternalServerError, fmt.Errorf("password hashing failed: %w", err))
+		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Password Hashing Failed", err)
 		return
 	}
 	user.Password = hashedPassword
 	user.ID = UserUUID
 	refreshToken, updatedUserRecord, err := updateUserAndRefreshToken(r.Context(), h.cfg.DB, h.cfg.Queries, user)
 	if err != nil {
-		chooseError(w, http.StatusInternalServerError, err)
+		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal Server Error", err)
 		return
 	}
 
 	accessToken, err := auth.GenerateJWTAccessToken(updatedUserRecord.ID, updatedUserRecord.Role, updatedUserRecord.PictureUrl.String, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
 	if err != nil {
-		chooseError(w, http.StatusInternalServerError, err)
+		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Token Generation Failed", err)
 		return
 	}
 
@@ -123,28 +122,28 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	accessTokenCookie, err := r.Cookie("access_token")
 	if err != nil {
-		chooseError(w, http.StatusUnauthorized, errors.New("missing access token"))
+		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), "Missing access token", err)
 		return
 	}
 	claims, err := auth.ValidateJWT(accessTokenCookie.Value, h.cfg.GhostvoxSecretKey)
 	if err != nil {
-		chooseError(w, http.StatusUnauthorized, err)
+		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), "Unauthorized", err)
 		return
 	}
 
 	userUUID, err := uuid.Parse(claims.Subject)
 	if err != nil {
-		chooseError(w, http.StatusBadRequest, err)
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid user ID", err)
 		return
 	}
 
 	err = h.cfg.Queries.DeleteUser(r.Context(), userUUID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			chooseError(w, http.StatusNotFound, err)
+			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "User not found", err)
 			return
 		}
-		chooseError(w, http.StatusInternalServerError, err)
+		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal Server Error", err)
 		return
 	}
 

@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-func respondWithError(w http.ResponseWriter, code int, msg string, err error) {
+func respondWithError(w http.ResponseWriter, code int, field, msg string, err error) {
 	if err != nil {
 		log.Printf("Error: %v", err)
 	}
@@ -15,10 +15,10 @@ func respondWithError(w http.ResponseWriter, code int, msg string, err error) {
 		log.Printf("Responding with 5xx error: %s", err)
 	}
 	type ErrorResponse struct {
-		Error string `json:"error"`
+		Errors map[string]string `json:"errors"`
 	}
 	errRes := ErrorResponse{
-		Error: msg,
+		Errors: map[string]string{field: msg},
 	}
 	respondWithJSON(w, code, errRes)
 }

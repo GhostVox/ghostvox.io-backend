@@ -2,12 +2,12 @@
 
 This is the backend for the **Ghostvox app**. It is a RESTful API built using Go, hosted on Fly.io with a PostgreSQL database. The API handles storage and retrieval of polls and their associated data for the Ghostvox app.
 
-## Endpoints
+## API Endpoints
 
-### User Endpoints
+### Authentication Endpoints
 
-#### 🚀 Create User ✅
-- **Route:** `POST /api/v1/users`
+#### 🚀 Register User
+- **Route:** `POST /api/v1/auth/register`
 - **Request:**
   ```json
   {
@@ -15,28 +15,87 @@ This is the backend for the **Ghostvox app**. It is a RESTful API built using Go
     "first_name": "John",
     "last_name": "Smith",
     "password": "yourpassword",
-    "provider": "",        // optional, if using external providers
-    "provider_id": "",     // optional, if using external providers
+    "provider": "",
+    "provider_id": "",
     "role": "user"
   }
   ```
 - **Response (201 Created):**
   - **Cookies Set:**
-    - `access_token`: A short-lived JWT stored as an HTTP-only cookie and also returned in the Authorization header as Bearer <token>.
-    - `refresh_token`: A long-lived refresh token stored as an HTTP-only cookie.
+    - `accessToken`: A short-lived JWT stored as an HTTP-only cookie and also returned in the Authorization header as Bearer <token>.
+    - `refreshToken`: A long-lived refresh token stored as an HTTP-only cookie.
   - **Response Body:**
     ```json
     {
       "message": "User created successfully"
     }
     ```
-- **Notes:**
-  - The refresh token is not stored on the user record but in its own dedicated table in the database. This facilitates better token management (e.g., rotation, revocation, and multiple sessions).
-  - Passwords are hashed using bcrypt before being stored.
-  - The API uses the request context (r.Context()) to handle graceful cancellation of database operations.
 
-#### 🔍 Get All Users ✅
-- **Route:** `GET /api/v1/users`
+#### 🔑 Login
+- **Route:** `POST /api/v1/auth/login`
+- **Request:**
+  ```json
+  {
+    "email": "john@example.com",
+    "password": "yourpassword"
+  }
+  ```
+- **Response (201 Created):**
+  - **Cookies Set:**
+    - `accessToken`: A short-lived JWT stored as an HTTP-only cookie and also returned in the Authorization header as Bearer <token>.
+    - `refreshToken`: A long-lived refresh token stored as an HTTP-only cookie.
+  - **Response Body:**
+    ```json
+    {
+      "message": "User created successfully"
+    }
+    ```
+
+#### 🔄 Refresh Token
+- **Route:** `POST /api/v1/auth/refresh`
+- **Request:** No body needed (uses HTTP-only cookie)
+- **Response (201 Created):**
+  - **Cookies Set:**
+    - New `accessToken` and `refreshToken` are issued as HTTP-only cookies.
+  - **Response Body:**
+    ```json
+    {
+      "message": "User created successfully"
+    }
+    ```
+
+#### 🚪 Logout
+- **Route:** `POST /api/v1/auth/logout`
+- **Request:** No body needed (uses HTTP-only cookie)
+- **Response (200 OK):**
+  - **Cookies:** Clears authentication cookies
+  - **Response Body:**
+    ```json
+    {
+      "message": "User logged out successfully"
+    }
+    ```
+
+#### 🔑 Google OAuth Login
+- **Route:** `GET /api/v1/auth/google/login`
+- **Response:** Redirects to Google authentication
+
+#### 🔑 Google OAuth Callback
+- **Route:** `GET /api/v1/auth/google/callback`
+- **Response (201 Created):**
+  - **Cookies Set:**
+    - `accessToken` and `refreshToken` are issued as HTTP-only cookies.
+  - **Response Body:**
+    ```json
+    {
+      "message": "User created successfully"
+    }
+    ```
+
+### User Endpoints
+
+#### 🔍 Get All Users (Admin only)
+- **Route:** `GET /api/v1/admin/users`
 - **Response (200 OK):**
   ```json
   [
@@ -45,21 +104,24 @@ This is the backend for the **Ghostvox app**. It is a RESTful API built using Go
       "email": "john@example.com",
       "first_name": "John",
       "last_name": "Smith",
-      "role": "user"
+      "role": "user",
+      "created_at": "2023-01-01T00:00:00Z",
+      "updated_at": "2023-01-01T00:00:00Z"
     },
     {
       "id": "2",
       "email": "jane@example.com",
       "first_name": "Jane",
       "last_name": "Doe",
-      "role": "admin"
+      "role": "admin",
+      "created_at": "2023-01-01T00:00:00Z",
+      "updated_at": "2023-01-01T00:00:00Z"
     }
   ]
   ```
-- **Notes:** This endpoint returns user information without any tokens.
 
-#### 🔍 Get Single User ✅
-- **Route:** `GET /api/v1/users/{id}`
+#### 🔍 Get Single User (Admin only)
+- **Route:** `GET /api/v1/admin/users/{id}`
 - **Response (200 OK):**
   ```json
   {
@@ -67,11 +129,13 @@ This is the backend for the **Ghostvox app**. It is a RESTful API built using Go
     "email": "john@example.com",
     "first_name": "John",
     "last_name": "Smith",
-    "role": "user"
+    "role": "user",
+    "created_at": "2023-01-01T00:00:00Z",
+    "updated_at": "2023-01-01T00:00:00Z"
   }
   ```
 
-#### ✏️ Update User ✅
+#### ✏️ Update User
 - **Route:** `PUT /api/v1/users/{id}`
 - **Request:**
   ```json
@@ -86,21 +150,21 @@ This is the backend for the **Ghostvox app**. It is a RESTful API built using Go
   }
   ```
 - **Response (200 OK):**
-  - **Cookies Set:** New `access_token` and `refresh_token` are issued as HTTP-only cookies, and the access token is included in the Authorization header.
+  - **Cookies Set:** New `accessToken` and `refreshToken` are issued as HTTP-only cookies, and the access token is included in the Authorization header.
   - **Response Body:**
     ```json
     {
-      "message": "User updated successfully"
+      "message": "User created successfully"
     }
     ```
 
-#### ❌ Delete User ✅
+#### ❌ Delete User
 - **Route:** `DELETE /api/v1/users/{id}`
 - **Response (204 No Content)**
 
 ### Poll Endpoints
 
-#### 🚀 Create Poll ✅
+#### 🚀 Create Poll
 - **Route:** `POST /api/v1/polls`
 - **Request:**
   ```json
@@ -109,65 +173,72 @@ This is the backend for the **Ghostvox app**. It is a RESTful API built using Go
     "title": "Sample Poll",
     "description": "This is a sample poll description",
     "expiresAt": "2024-12-31T23:59:59Z",
-    "status": "Active|Inactive|Archived" // Case sensitive
+    "status": "Active"
   }
   ```
 - **Response (201 Created):**
   ```json
   {
-    "id": "1",
+    "id": "poll-uuid",
     "userId": "user123",
     "title": "Sample Poll",
     "description": "This is a sample poll description",
+    "created_at": "2023-05-01T10:00:00Z",
+    "updated_at": "2023-05-01T10:00:00Z",
     "expiresAt": "2024-12-31T23:59:59Z",
-    "status": "active"
+    "status": "Active"
   }
   ```
 
-#### 🔍 Get Poll ✅
+#### 🔍 Get Poll
 - **Route:** `GET /api/v1/polls/{id}`
 - **Response (200 OK):**
   ```json
   {
-    "id": "1",
+    "id": "poll-uuid",
     "userId": "user123",
     "title": "Sample Poll",
     "description": "This is a sample poll description",
+    "created_at": "2023-05-01T10:00:00Z",
+    "updated_at": "2023-05-01T10:00:00Z",
     "expiresAt": "2024-12-31T23:59:59Z",
-    "status": "active"
+    "status": "Active"
   }
   ```
 
-#### 🔍 Get Polls
+#### 🔍 Get All Polls
 - **Route:** `GET /api/v1/polls`
 - **Response (200 OK):**
   ```json
   [
     {
-      "id": "1",
+      "id": "poll-uuid-1",
       "userId": "user123",
       "title": "Sample Poll",
       "description": "This is a sample poll description",
+      "created_at": "2023-05-01T10:00:00Z",
+      "updated_at": "2023-05-01T10:00:00Z",
       "expiresAt": "2024-12-31T23:59:59Z",
-      "status": "active"
+      "status": "Active"
     },
     {
-      "id": "2",
+      "id": "poll-uuid-2",
       "userId": "user123",
       "title": "Another Sample Poll",
       "description": "This is another sample poll description",
+      "created_at": "2023-05-02T10:00:00Z",
+      "updated_at": "2023-05-02T10:00:00Z",
       "expiresAt": "2024-12-31T23:59:59Z",
-      "status": "active"
+      "status": "Active"
     }
   ]
   ```
 
-#### ✏️ Update Poll ✅
+#### ✏️ Update Poll
 - **Route:** `PUT /api/v1/polls/{id}`
 - **Request:**
   ```json
   {
-    "id": "1",
     "userId": "user123",
     "title": "Updated Poll",
     "description": "This is an updated poll description",
@@ -178,148 +249,189 @@ This is the backend for the **Ghostvox app**. It is a RESTful API built using Go
 - **Response (200 OK):**
   ```json
   {
-    "id": "1",
+    "id": "poll-uuid",
     "userId": "user123",
     "title": "Updated Poll",
     "description": "This is an updated poll description",
+    "created_at": "2023-05-01T10:00:00Z",
+    "updated_at": "2023-05-03T15:30:00Z",
     "expiresAt": "2024-12-31T23:59:59Z",
-    "status": "inactive"
+    "status": "Inactive"
   }
   ```
 
-#### ❌ Delete Poll ✅
+#### ❌ Delete Poll
 - **Route:** `DELETE /api/v1/polls/{id}`
 - **Response (204 No Content)**
 
-### Vote Endpoints
+### Poll Option Endpoints
 
-#### 🚀 Create Vote
-- **Route:** `POST /api/v1/polls/{id}/votes`
-- **Request:**
-  ```json
-  {
-    "userId": "user123",
-    "optionId": "option1"
-  }
-  ```
-- **Response (201 Created):**
-  ```json
-  {
-    "id": "1",
-    "userId": "user123",
-    "optionId": "option1"
-  }
-  ```
-
-#### 🔍 Get Vote
-- **Route:** `GET /api/v1/polls/{id}/votes/{id}`
-- **Response (200 OK):**
-  ```json
-  {
-    "id": "1",
-    "userId": "user123",
-    "optionId": "option1"
-  }
-  ```
-
-#### 🔍 Get Votes
-- **Route:** `GET /api/v1/polls/{id}/votes`
-- **Response (200 OK):**
-  ```json
-  [
-    {
-      "id": "1",
-      "userId": "user123",
-      "optionId": "option1"
-    },
-    {
-      "id": "2",
-      "userId": "user456",
-      "optionId": "option2"
-    }
-  ]
-  ```
-
-#### ❌ Delete Vote
-- **Route:** `DELETE /api/v1/polls/{id}/votes/{id}`
-- **Response (204 No Content)**
-
-### Options Endpoint
-
-#### 🚀 Create Option
-- **Route:** `POST /api/v1/polls/{id}/options`
+#### 🚀 Create Options
+- **Route:** `POST /api/v1/polls/{pollId}/options`
 - **Request:**
   ```json
   {
     "options": [
       {
-        "name": "Option Name",
-        "value": "Option 1"
+        "name": "Option 1",
+        "value": "Value 1"
       },
       {
-        "name": "Option Name",
-        "value": "Option 2"
+        "name": "Option 2",
+        "value": "Value 2"
       }
     ]
   }
   ```
 - **Response (201 Created):**
   ```json
-  {
-    "id": "1",
-    "userId": "user123",
-    "text": "Option 1"
-  }
+  [
+    {
+      "id": "option-uuid-1",
+      "name": "Option 1",
+      "value": "Value 1",
+      "poll_id": "poll-uuid",
+      "created_at": "2023-05-01T10:10:00Z",
+      "updated_at": "2023-05-01T10:10:00Z"
+    },
+    {
+      "id": "option-uuid-2",
+      "name": "Option 2",
+      "value": "Value 2",
+      "poll_id": "poll-uuid",
+      "created_at": "2023-05-01T10:10:00Z",
+      "updated_at": "2023-05-01T10:10:00Z"
+    }
+  ]
   ```
 
 #### 🔍 Get Option
-- **Route:** `GET /api/v1/polls/{id}/options/{id}`
+- **Route:** `GET /api/v1/polls/{pollId}/options/{optionId}`
 - **Response (200 OK):**
   ```json
   {
-    "id": "1",
-    "userId": "user123",
-    "text": "Option 1"
+    "id": "option-uuid",
+    "name": "Option 1",
+    "value": "Value 1",
+    "poll_id": "poll-uuid",
+    "created_at": "2023-05-01T10:10:00Z",
+    "updated_at": "2023-05-01T10:10:00Z"
   }
   ```
 
-#### 🔍 Get Options
-- **Route:** `GET /api/v1/polls/{id}/options`
+#### 🔍 Get All Options for Poll
+- **Route:** `GET /api/v1/polls/{pollId}/options`
 - **Response (200 OK):**
   ```json
   [
     {
-      "id": "1",
-      "userId": "user123",
-      "text": "Option 1"
+      "id": "option-uuid-1",
+      "name": "Option 1",
+      "value": "Value 1",
+      "poll_id": "poll-uuid",
+      "created_at": "2023-05-01T10:10:00Z",
+      "updated_at": "2023-05-01T10:10:00Z"
     },
     {
-      "id": "2",
-      "userId": "user456",
-      "text": "Option 2"
+      "id": "option-uuid-2",
+      "name": "Option 2",
+      "value": "Value 2",
+      "poll_id": "poll-uuid",
+      "created_at": "2023-05-01T10:10:00Z",
+      "updated_at": "2023-05-01T10:10:00Z"
     }
   ]
   ```
 
 #### ✏️ Update Option
-- **Route:** `PUT /api/v1/polls/{id}/options/{id}`
+- **Route:** `PUT /api/v1/polls/{pollId}/options/{optionId}`
 - **Request:**
   ```json
   {
-    "id": "1",
-    "userId": "user123",
-    "text": "Updated Option"
+    "id": "option-uuid",
+    "name": "Updated Option",
+    "value": "Updated Value"
   }
   ```
 - **Response (200 OK):**
   ```json
   {
-    "id": "1",
-    "userId": "user123",
-    "text": "Updated Option"
+    "id": "option-uuid",
+    "name": "Updated Option",
+    "value": "Updated Value",
+    "poll_id": "poll-uuid",
+    "created_at": "2023-05-01T10:10:00Z",
+    "updated_at": "2023-05-03T16:20:00Z"
   }
   ```
 
 #### ❌ Delete Option
-- **Route:** `DELETE /api/v1/polls/{id}/options/{id}`
+- **Route:** `DELETE /api/v1/polls/{pollId}/options/{optionId}`
 - **Response (204 No Content)**
+
+### Vote Endpoints
+
+#### 🚀 Create Vote
+- **Route:** `POST /api/v1/polls/{pollId}/votes`
+- **Request:**
+  ```json
+  {
+    "userId": "user123",
+    "optionId": "option-uuid"
+  }
+  ```
+- **Response (201 Created):**
+  ```json
+  {
+    "id": "vote-uuid",
+    "pollId": "poll-uuid",
+    "optionId": "option-uuid",
+    "userId": "user123",
+    "created_at": "2023-05-01T11:00:00Z"
+  }
+  ```
+
+#### 🔍 Get Votes by Poll
+- **Route:** `GET /api/v1/polls/{pollId}/votes`
+- **Response (200 OK):**
+  ```json
+  [
+    {
+      "id": "vote-uuid-1",
+      "pollId": "poll-uuid",
+      "optionId": "option-uuid-1",
+      "userId": "user123",
+      "created_at": "2023-05-01T11:00:00Z"
+    },
+    {
+      "id": "vote-uuid-2",
+      "pollId": "poll-uuid",
+      "optionId": "option-uuid-2",
+      "userId": "user456",
+      "created_at": "2023-05-01T11:30:00Z"
+    }
+  ]
+  ```
+
+#### ❌ Delete Vote
+- **Route:** `DELETE /api/v1/votes/{voteId}`
+- **Response (204 No Content)**
+
+## Technical Notes
+
+- **Authentication:** The API uses JWT tokens for authentication, with both access and refresh tokens.
+- **Cookie Security:** Authentication tokens are stored as HTTP-only cookies with appropriate security settings.
+- **Database:** The API uses PostgreSQL with foreign key constraints and cascading deletes.
+- **Transaction Support:** Critical operations like user creation and token management use database transactions to ensure data consistency.
+- **Role-Based Access Control:** Certain endpoints are restricted to admin users.
+- **OAuth Integration:** Google OAuth is supported for authentication.
+
+## Deployment
+
+The application can be deployed using Docker. See the Docker documentation for more details.
+
+```bash
+docker compose up --build
+```
+
+The API will be available at http://localhost:8080.

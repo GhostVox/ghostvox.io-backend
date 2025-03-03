@@ -71,6 +71,10 @@ func main() {
 	if mode == "" {
 		log.Fatal("MODE must be set")
 	}
+	accessOrigin := os.Getenv("ACCESS_ORIGIN")
+	if accessOrigin == "" {
+		log.Fatal("ACCESS_ORIGIN must be set")
+	}
 
 	accesstokenExpDur, err := time.ParseDuration(accesstokenExp)
 	if err != nil {
@@ -123,7 +127,8 @@ func main() {
 	adminHandler := handlers.NewAdminHandler(cfg)
 
 	mux := http.NewServeMux()
-	wrappedMux := mw.CorsMiddleware(mux)
+
+	wrappedMux := mw.CorsMiddleware(mux, accessOrigin)
 	//  start attaching route handlers to cfg.mux
 	// Redirects users to the root of the API and returns route endpoints for the API
 	mux.HandleFunc("/api/v1/", mw.LoggingMiddleware(rootHandler.HandleRoot))

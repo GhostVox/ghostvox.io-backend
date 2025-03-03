@@ -24,10 +24,10 @@ func (h *AdminHandler) GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := h.cfg.Queries.GetUsers(r.Context())
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			chooseError(w, http.StatusNotFound, err)
+			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "no users found", err)
 			return
 		}
-		chooseError(w, http.StatusInternalServerError, err)
+		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
 		return
 	}
 
@@ -39,16 +39,16 @@ func (h *AdminHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("userId")
 	userUUID, err := uuid.Parse(id)
 	if err != nil {
-		chooseError(w, http.StatusBadRequest, err)
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid user ID", err)
 		return
 	}
 	user, err := h.cfg.Queries.GetUserById(r.Context(), userUUID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			chooseError(w, http.StatusNotFound, err)
+			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "User not found", err)
 			return
 		}
-		chooseError(w, http.StatusInternalServerError, err)
+		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
 		return
 	}
 

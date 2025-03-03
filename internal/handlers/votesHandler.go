@@ -26,22 +26,21 @@ func NewVoteHandler(db *database.Queries) *voteHandler {
 		db: db,
 	}
 }
-
 func (vh *voteHandler) GetVotesByPoll(w http.ResponseWriter, r *http.Request) {
 
 	pollId := r.PathValue("pollId")
 	pollUUID, err := uuid.Parse(pollId)
 	if err != nil {
-		chooseError(w, http.StatusBadRequest, err)
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Missing poll id path value", err)
 		return
 	}
 	votes, err := vh.db.GetVotesByPollID(context.Background(), pollUUID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			chooseError(w, http.StatusNotFound, err)
+			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "No votes found for poll", err)
 			return
 		}
-		chooseError(w, http.StatusInternalServerError, err)
+		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Failed to retrieve votes", err)
 		return
 	}
 
@@ -53,19 +52,19 @@ func (vh *voteHandler) CreateVote(w http.ResponseWriter, r *http.Request) {
 	pollId := r.PathValue("pollId")
 	pollUUID, err := uuid.Parse(pollId)
 	if err != nil {
-		chooseError(w, http.StatusBadRequest, err)
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid poll ID format", err)
 		return
 	}
 	var vote Vote
 	err = json.NewDecoder(r.Body).Decode(&vote)
 	if err != nil {
-		chooseError(w, http.StatusBadRequest, err)
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid request body", err)
 		return
 	}
 
 	optionUUID, err := uuid.Parse(vote.OptionId)
 	if err != nil {
-		chooseError(w, http.StatusBadRequest, err)
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid option ID format", err)
 		return
 	}
 
@@ -76,10 +75,10 @@ func (vh *voteHandler) CreateVote(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			chooseError(w, http.StatusNotFound, err)
+			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "Poll or option not found", err)
 			return
 		}
-		chooseError(w, http.StatusInternalServerError, err)
+		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Failed to create vote", err)
 		return
 	}
 
@@ -92,17 +91,17 @@ func (vh *voteHandler) DeleteVote(w http.ResponseWriter, r *http.Request) {
 	voteId := r.PathValue("voteId")
 	voteUUID, err := uuid.Parse(voteId)
 	if err != nil {
-		chooseError(w, http.StatusBadRequest, err)
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid vote ID format", err)
 		return
 	}
 
 	err = vh.db.DeleteVoteByID(r.Context(), voteUUID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			chooseError(w, http.StatusNotFound, err)
+			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "Vote not found", err)
 			return
 		}
-		chooseError(w, http.StatusInternalServerError, err)
+		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Failed to delete vote", err)
 		return
 	}
 

@@ -130,7 +130,7 @@ func (gh *googleHandler) GoogleCallbackHandler(w http.ResponseWriter, r *http.Re
 	var refreshTokenString string
 	// If user doesn't exist, create a new one
 	if errors.Is(err, sql.ErrNoRows) {
-		refreshToken, newUserRecord, err := addUserAndRefreshToken(r.Context(), gh.cfg.DB, gh.cfg.Queries, user)
+		refreshToken, newUserRecord, err := addUserAndRefreshToken(r.Context(), gh.cfg.DB, gh.cfg.Queries, &user)
 		if err != nil {
 			http.Error(w, "Failed to add user and refresh token: "+err.Error(), http.StatusInternalServerError)
 			return
