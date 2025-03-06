@@ -14,16 +14,15 @@ import (
 
 const createUser = `-- name: CreateUser :one
 INSERT INTO
-    users (id,email, first_name, last_name, hashed_password,provider,provider_id,role,picture_url)
+    users (email, first_name, last_name, hashed_password,provider,provider_id,role,picture_url)
 VALUES
 
-    ($1, $2, $3, $4, $5,$6,$7,$8,$9)
+    ($1, $2, $3, $4, $5,$6,$7,$8)
 RETURNING
     id, created_at, updated_at, email, first_name, last_name, hashed_password, provider, provider_id, role, picture_url
 `
 
 type CreateUserParams struct {
-	ID             uuid.UUID
 	Email          string
 	FirstName      string
 	LastName       sql.NullString
@@ -36,7 +35,6 @@ type CreateUserParams struct {
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
 	row := q.db.QueryRowContext(ctx, createUser,
-		arg.ID,
 		arg.Email,
 		arg.FirstName,
 		arg.LastName,

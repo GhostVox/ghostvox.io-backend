@@ -90,9 +90,10 @@ func (h *pollHandler) CreatePoll(w http.ResponseWriter, r *http.Request) {
 	if newPoll.ExpiresAt == "" {
 		expiresAt = time.Now().UTC().Add(time.Duration(24 * time.Hour))
 	}
+	userUUID, err := uuid.Parse(newPoll.UserID)
 
 	pollRecord, err := h.db.CreatePoll(r.Context(), database.CreatePollParams{
-		UserID:      newPoll.UserID,
+		UserID:      userUUID,
 		Description: newPoll.Description,
 		Title:       newPoll.Title,
 		ExpiresAt:   expiresAt,
@@ -133,10 +134,14 @@ func (h *pollHandler) UpdatePoll(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid ExpiresAt expect format to be 2023-10-05T15:04:05Z07:00", err)
 		return
 	}
-
+	userUUID, err := uuid.Parse(newPoll.UserID)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid user id", err)
+		return
+	}
 	pollRecord, err := h.db.UpdatePoll(r.Context(), database.UpdatePollParams{
 		ID:          pollUUID,
-		UserID:      newPoll.UserID,
+		UserID:      userUUID,
 		Description: newPoll.Description,
 		Title:       newPoll.Title,
 		ExpiresAt:   expiresAt,

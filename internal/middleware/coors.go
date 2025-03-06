@@ -8,7 +8,7 @@ func CorsMiddleware(next http.Handler, accessOrigin string) http.Handler {
 		w.Header().Set("Access-Control-Allow-Credentials", "true") // Allows cookies
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-
+		w.Header().Set("Access-Control-Expose-Headers", "Authorization")
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return

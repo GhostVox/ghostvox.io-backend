@@ -16,6 +16,8 @@ type APIConfig struct {
 	RefreshTokenExp   time.Duration
 	GhostvoxSecretKey string
 	Mode              string
+	UseHTTPS          string
+	AccessOrigin      string
 }
 type OAuthUser struct {
 	Email        string `json:"email,omitempty"`

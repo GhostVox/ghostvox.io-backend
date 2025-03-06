@@ -30,6 +30,14 @@ This is the backend for the **Ghostvox app**. It is a RESTful API built using Go
       "message": "User created successfully"
     }
     ```
+- **Error Response:**
+  ```json
+  {
+    "errors": {
+      "field": "Error message for this specific field"
+    }
+  }
+  ```
 
 #### 🔑 Login
 - **Route:** `POST /api/v1/auth/login`
@@ -50,6 +58,14 @@ This is the backend for the **Ghostvox app**. It is a RESTful API built using Go
       "message": "User created successfully"
     }
     ```
+- **Error Response:**
+  ```json
+  {
+    "errors": {
+      "email": "Invalid credentials"
+    }
+  }
+  ```
 
 #### 🔄 Refresh Token
 - **Route:** `POST /api/v1/auth/refresh`
@@ -425,6 +441,33 @@ This is the backend for the **Ghostvox app**. It is a RESTful API built using Go
 - **Transaction Support:** Critical operations like user creation and token management use database transactions to ensure data consistency.
 - **Role-Based Access Control:** Certain endpoints are restricted to admin users.
 - **OAuth Integration:** Google OAuth is supported for authentication.
+
+## Error Handling
+
+The API implements a consistent error response format to facilitate front-end form validation and error handling:
+
+- **Format:** All errors are returned in a standardized format:
+  ```json
+  {
+    "errors": {
+      "field_name": "Error message specific to this field"
+    }
+  }
+  ```
+
+- **Field-Specific Errors:** The error response includes field names as keys, allowing the front-end to easily map errors to specific form fields:
+  - For validation errors (e.g., email format, required fields), the field name will indicate which input needs correction
+  - For general errors, the status code field may be used with a general error message
+
+- **HTTP Status Codes:**
+  - `400 Bad Request`: Invalid input data
+  - `401 Unauthorized`: Authentication required or failed
+  - `403 Forbidden`: Permission denied
+  - `404 Not Found`: Resource not found
+  - `409 Conflict`: Resource already exists (e.g., email already taken)
+  - `500 Internal Server Error`: Server-side errors
+
+This error handling system makes it easy to implement client-side form validation and display appropriate error messages to users.
 
 ## Deployment
 

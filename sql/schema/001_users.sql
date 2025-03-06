@@ -15,7 +15,7 @@ CREATE TABLE users (
     picture_url TEXT DEFAULT NULL
 );
 
-CREATE UNIQUE INDEX unique_provider_id ON users (provider, provider_id);
+CREATE UNIQUE INDEX unique_provider_id ON users (provider, provider_id, email);
 
 -- +goose Down
 DROP TABLE users;

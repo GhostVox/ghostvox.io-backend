@@ -122,7 +122,7 @@ func (gh *googleHandler) GoogleCallbackHandler(w http.ResponseWriter, r *http.Re
 	// Check if email already exists (prevents duplicate accounts)
 	existingUser, err := gh.cfg.Queries.GetUserByEmail(r.Context(), user.Email)
 	if err == nil && existingUser.Provider.String != googleProvider {
-		http.Error(w, "Account already exists with a different provider", http.StatusConflict)
+		http.Redirect(w, r, gh.cfg.AccessOrigin, http.StatusConflict)
 		return
 	}
 
@@ -132,7 +132,7 @@ func (gh *googleHandler) GoogleCallbackHandler(w http.ResponseWriter, r *http.Re
 	if errors.Is(err, sql.ErrNoRows) {
 		refreshToken, newUserRecord, err := addUserAndRefreshToken(r.Context(), gh.cfg.DB, gh.cfg.Queries, &user)
 		if err != nil {
-			http.Error(w, "Failed to add user and refresh token: "+err.Error(), http.StatusInternalServerError)
+			http.Redirect(w, r, gh.cfg.AccessOrigin, http.StatusInternalServerError)
 			return
 		}
 		userRecord = newUserRecord
@@ -140,7 +140,7 @@ func (gh *googleHandler) GoogleCallbackHandler(w http.ResponseWriter, r *http.Re
 	} else {
 		refreshToken, err := auth.GenerateRefreshToken()
 		if err != nil {
-			http.Error(w, "Failed to generate refresh token: "+err.Error(), http.StatusInternalServerError)
+			http.Redirect(w, r, gh.cfg.AccessOrigin, http.StatusInternalServerError)
 			return
 		}
 		userRecord = existingUser
@@ -149,10 +149,11 @@ func (gh *googleHandler) GoogleCallbackHandler(w http.ResponseWriter, r *http.Re
 	// Generate Access Token
 	accessToken, err := auth.GenerateJWTAccessToken(userRecord.ID, userRecord.Role, userRecord.PictureUrl.String, gh.cfg.GhostvoxSecretKey, gh.cfg.AccessTokenExp)
 	if err != nil {
-		http.Error(w, "Failed to generate access token: "+err.Error(), http.StatusInternalServerError)
+		http.Redirect(w, r, gh.cfg.AccessOrigin, http.StatusInternalServerError)
 		return
 	}
 
 	// Set cookies
-	SetCookiesHelper(w, refreshTokenString, accessToken, gh.cfg)
+	SetCookiesHelper(w, http.StatusOK, refreshTokenString, accessToken, gh.cfg)
+	http.Redirect(w, r, gh.cfg.AccessOrigin+"/dashboard", http.StatusOK)
 }

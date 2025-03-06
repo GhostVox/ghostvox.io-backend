@@ -15,7 +15,7 @@ import (
 const createRefreshToken = `-- name: CreateRefreshToken :one
 INSERT INTO refresh_tokens (user_id, token, expires_at)
 VALUES ($1, $2, $3)
-RETURNING token, user_id, created_at, expires_at
+RETURNING user_id, token, created_at, expires_at
 `
 
 type CreateRefreshTokenParams struct {
@@ -28,8 +28,8 @@ func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshToken
 	row := q.db.QueryRowContext(ctx, createRefreshToken, arg.UserID, arg.Token, arg.ExpiresAt)
 	var i RefreshToken
 	err := row.Scan(
-		&i.Token,
 		&i.UserID,
+		&i.Token,
 		&i.CreatedAt,
 		&i.ExpiresAt,
 	)
@@ -45,16 +45,41 @@ func (q *Queries) DeleteRefreshToken(ctx context.Context, token string) error {
 	return err
 }
 
+const deleteRefreshTokenByUserID = `-- name: DeleteRefreshTokenByUserID :exec
+DELETE FROM refresh_tokens WHERE user_id = $1
+`
+
+func (q *Queries) DeleteRefreshTokenByUserID(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteRefreshTokenByUserID, userID)
+	return err
+}
+
 const getRefreshToken = `-- name: GetRefreshToken :one
-SELECT token, user_id, created_at, expires_at FROM refresh_tokens WHERE token = $1
+SELECT user_id, token, created_at, expires_at FROM refresh_tokens WHERE token = $1
 `
 
 func (q *Queries) GetRefreshToken(ctx context.Context, token string) (RefreshToken, error) {
 	row := q.db.QueryRowContext(ctx, getRefreshToken, token)
 	var i RefreshToken
 	err := row.Scan(
-		&i.Token,
 		&i.UserID,
+		&i.Token,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+	)
+	return i, err
+}
+
+const getRefreshTokenByUserID = `-- name: GetRefreshTokenByUserID :one
+SELECT user_id, token, created_at, expires_at FROM refresh_tokens WHERE user_id = $1
+`
+
+func (q *Queries) GetRefreshTokenByUserID(ctx context.Context, userID uuid.UUID) (RefreshToken, error) {
+	row := q.db.QueryRowContext(ctx, getRefreshTokenByUserID, userID)
+	var i RefreshToken
+	err := row.Scan(
+		&i.UserID,
+		&i.Token,
 		&i.CreatedAt,
 		&i.ExpiresAt,
 	)
@@ -62,21 +87,21 @@ func (q *Queries) GetRefreshToken(ctx context.Context, token string) (RefreshTok
 }
 
 const updateRefreshToken = `-- name: UpdateRefreshToken :one
-UPDATE refresh_tokens SET user_id = $2, expires_at = $3 WHERE token = $1 RETURNING token, user_id, created_at, expires_at
+UPDATE refresh_tokens SET token = $2, expires_at = $3 WHERE user_id = $1 RETURNING user_id, token, created_at, expires_at
 `
 
 type UpdateRefreshTokenParams struct {
-	Token     string
 	UserID    uuid.UUID
+	Token     string
 	ExpiresAt time.Time
 }
 
 func (q *Queries) UpdateRefreshToken(ctx context.Context, arg UpdateRefreshTokenParams) (RefreshToken, error) {
-	row := q.db.QueryRowContext(ctx, updateRefreshToken, arg.Token, arg.UserID, arg.ExpiresAt)
+	row := q.db.QueryRowContext(ctx, updateRefreshToken, arg.UserID, arg.Token, arg.ExpiresAt)
 	var i RefreshToken
 	err := row.Scan(
-		&i.Token,
 		&i.UserID,
+		&i.Token,
 		&i.CreatedAt,
 		&i.ExpiresAt,
 	)

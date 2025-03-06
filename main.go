@@ -71,6 +71,11 @@ func main() {
 	if mode == "" {
 		log.Fatal("MODE must be set")
 	}
+
+	https := os.Getenv("USE_HTTPS")
+	if https == "" {
+		log.Fatal("HTTPS must be set")
+	}
 	accessOrigin := os.Getenv("ACCESS_ORIGIN")
 	if accessOrigin == "" {
 		log.Fatal("ACCESS_ORIGIN must be set")
@@ -107,6 +112,8 @@ func main() {
 		RefreshTokenExp:   refreshTokenExpDur,
 		GhostvoxSecretKey: ghostvoxSecretKey,
 		Mode:              mode,
+		UseHTTPS:          https,
+		AccessOrigin:      accessOrigin,
 	}
 	// OAuth2 configuration
 	var googleOAuthConfig = &oauth2.Config{
@@ -145,8 +152,8 @@ func main() {
 	mux.HandleFunc("DELETE /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.DeletePoll))
 	// End of poll routes
 	// OAuth routes
-	mux.HandleFunc("/api/v1/auth/google/login", mw.LoggingMiddleware(googleHandler.GoogleLoginHandler))
-	mux.HandleFunc("/api/v1/auth/google/callback", mw.LoggingMiddleware(googleHandler.GoogleCallbackHandler))
+	mux.HandleFunc("GET /api/v1/auth/google/login", mw.LoggingMiddleware(googleHandler.GoogleLoginHandler))
+	mux.HandleFunc("GET /api/v1/auth/google/callback", mw.LoggingMiddleware(googleHandler.GoogleCallbackHandler))
 	// end
 	//Auth routes
 	mux.HandleFunc("POST /api/v1/auth/login", mw.LoggingMiddleware(authHandler.Login))
@@ -196,14 +203,37 @@ func main() {
 		http.NotFound(w, r)
 	}))
 
+	addr := port
 	// Create a pointer to the http.Server object and configure it
 	server := &http.Server{
-		Addr:    cfg.Port,
+		Addr:    addr,
 		Handler: wrappedMux,
 	}
 
-	// Start the server
-	log.Printf("Server running on http://localhost%s", cfg.Port)
-	log.Fatal(server.ListenAndServe())
+	if mode == "production" || https == "true" {
+		// HTTPS mode
+		certFile := os.Getenv("CERT_FILE")
+		keyFile := os.Getenv("KEY_FILE")
 
+		// Use default paths if not specified
+		if certFile == "" {
+			certFile = "./localhost+2.pem"
+		}
+		if keyFile == "" {
+			keyFile = "./localhost+2-key.pem"
+		}
+
+		log.Printf("Starting server in HTTPS mode on port %s\n", port)
+		err := server.ListenAndServeTLS(certFile, keyFile)
+		if err != nil {
+			log.Fatal("Server failed to start:", err)
+		}
+	} else {
+		// HTTP mode (for simple local development)
+		log.Printf("Starting server in HTTP mode on port %s\n", port)
+		err := server.ListenAndServe()
+		if err != nil {
+			log.Fatal("Server failed to start:", err)
+		}
+	}
 }

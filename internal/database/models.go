@@ -67,7 +67,7 @@ type Option struct {
 
 type Poll struct {
 	ID          uuid.UUID
-	UserID      string
+	UserID      uuid.UUID
 	Title       string
 	Description string
 	CreatedAt   time.Time
@@ -77,8 +77,8 @@ type Poll struct {
 }
 
 type RefreshToken struct {
-	Token     string
 	UserID    uuid.UUID
+	Token     string
 	CreatedAt time.Time
 	ExpiresAt time.Time
 }
@@ -102,5 +102,5 @@ type Vote struct {
 	PollID    uuid.UUID
 	OptionID  uuid.UUID
 	CreatedAt time.Time
-	UserID    string
+	UserID    uuid.UUID
 }

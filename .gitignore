@@ -1,3 +1,7 @@
 .env
 /bin
 /internal/handlers/userHandler_test.go
+# Local HTTPS certificates
+*.pem
+localhost+*.pem
+localhost+*-key.pem

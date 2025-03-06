@@ -4,10 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 
 	"github.com/GhostVox/ghostvox.io-backend/internal/auth"
 	"github.com/GhostVox/ghostvox.io-backend/internal/database"
-	"github.com/lib/pq"
 )
 
 func addUserAndRefreshToken(ctx context.Context, db *sql.DB, queries *database.Queries, user *User) (string, database.User, error) {
@@ -29,12 +29,8 @@ func addUserAndRefreshToken(ctx context.Context, db *sql.DB, queries *database.Q
 		Role:           user.Role,
 	})
 	if err != nil {
-		if err, ok := err.(*pq.Error); ok {
-			if err.Code == "23505" {
-				return "", database.User{}, errors.New("Email already exists")
-			}
-		}
-		return "", database.User{}, errors.New("Failed to create user")
+
+		return "", database.User{}, fmt.Errorf("Failed to add user error: %v", err)
 	}
 
 	refreshTokenString, err := auth.GenerateRefreshToken()

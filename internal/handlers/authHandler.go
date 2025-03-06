@@ -38,6 +38,22 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	_, err = h.cfg.Queries.GetUserByEmail(r.Context(), user.Email)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// Email doesn't exist, continue with registration
+			// We can proceed safely
+		} else {
+			// Some other database error occurred
+			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Failed to check if email exists", err)
+			return
+		}
+	} else {
+		// No error means the email exists
+		respondWithError(w, http.StatusConflict, "email", "Email already exists", errors.New("Email already taken"))
+		return
+	}
+
 	// Hash password
 	hashedPassword, err := auth.HashPassword(user.Password)
 	if err != nil {
@@ -47,10 +63,6 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	user.Password = hashedPassword
 	refreshToken, userRecord, err := addUserAndRefreshToken(r.Context(), h.cfg.DB, h.cfg.Queries, &user)
 	if err != nil {
-		if err.Error() == "Email already exists" {
-			respondWithError(w, http.StatusConflict, "email", "Email already exists", err)
-			return
-		}
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "User creation failed", err)
 		return
 	}
@@ -62,8 +74,8 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	SetCookiesHelper(w, refreshToken, accessToken, h.cfg)
-
+	SetCookiesHelper(w, http.StatusOK, refreshToken, accessToken, h.cfg)
+	respondWithJSON(w, http.StatusOK, map[string]interface{}{"msg": "User created successfully"})
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -78,12 +90,11 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	userRecord, err := h.cfg.Queries.GetUserByEmail(r.Context(), login.Email)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), "Invalid credentials", err)
+		respondWithError(w, http.StatusUnauthorized, "email", "Invalid email", err)
 		return
 	}
-
-	if err := auth.VerifyPassword(login.Password, userRecord.HashedPassword.String); err != nil {
-		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), "Invalid credentials", err)
+	if err := auth.VerifyPassword(userRecord.HashedPassword.String, login.Password); err != nil {
+		respondWithError(w, http.StatusUnauthorized, "password", "Invalid password", err)
 		return
 	}
 
@@ -93,7 +104,17 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Refresh token generation failed", err)
 		return
 	}
+	// check for existing user refresh token
 
+	_, err = h.cfg.Queries.GetRefreshTokenByUserID(r.Context(), userRecord.ID)
+	if err == nil {
+		// Delete existing refresh token
+		err = h.cfg.Queries.DeleteRefreshTokenByUserID(r.Context(), userRecord.ID)
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Database refresh token deletion failed", err)
+			return
+		}
+	}
 	// Create Refresh Token in the database
 	_, err = h.cfg.Queries.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
 		UserID:    userRecord.ID,
@@ -111,18 +132,21 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Access token generation failed", err)
 		return
 	}
-
-	SetCookiesHelper(w, refreshToken, accessToken, h.cfg)
+	SetCookiesHelper(w, http.StatusOK, refreshToken, accessToken, h.cfg)
+	respondWithJSON(w, http.StatusOK, map[string]interface{}{"msg": "User logged in successfully"})
 
 }
 
 func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
-	refreshCookie, err := r.Cookie("refresh_token")
+	refreshCookie, err := r.Cookie("refreshToken")
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), "Refresh token not found", err)
 		return
 	}
-
+	if refreshCookie.Value == "" {
+		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), "Refresh token not found", err)
+		return
+	}
 	refreshTokenRecord, err := h.cfg.Queries.GetRefreshToken(r.Context(), refreshCookie.Value)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -131,7 +155,6 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Failed to get refresh token record", err)
 		return
 	}
-
 	userRecord, err := h.cfg.Queries.GetUserById(r.Context(), refreshTokenRecord.UserID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -152,19 +175,24 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Failed to generate refresh token", err)
 		return
 	}
-
 	newRefreshRecord, err := h.cfg.Queries.UpdateRefreshToken(r.Context(), database.UpdateRefreshTokenParams{
-		UserID: userRecord.ID,
-		Token:  newRefreshToken,
+		UserID:    userRecord.ID,
+		Token:     newRefreshToken,
+		ExpiresAt: time.Now().Add(h.cfg.RefreshTokenExp),
 	})
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Failed to update refresh token", err)
+		return
+	}
 
-	SetCookiesHelper(w, newRefreshRecord.Token, accessToken, h.cfg)
+	SetCookiesHelper(w, http.StatusOK, newRefreshRecord.Token, accessToken, h.cfg)
+	respondWithJSON(w, http.StatusOK, map[string]interface{}{"msg": "Refresh token updated successfully"})
 
 }
 
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	// Get Refresh Token from Cookie
-	refreshToken, err := r.Cookie("refresh_token")
+	refreshToken, err := r.Cookie("refreshToken")
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid refresh token", err)
 		return
@@ -177,7 +205,8 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Clear Cookies
-	SetCookiesHelper(w, "", "", h.cfg)
+	// Clear Cookie
+	SetCookiesHelper(w, http.StatusOK, "", "", h.cfg)
+	respondWithJSON(w, http.StatusOK, map[string]interface{}{"msg": "User logged out successfully"})
 
 }

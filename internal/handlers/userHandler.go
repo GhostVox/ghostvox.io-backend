@@ -116,7 +116,8 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	SetCookiesHelper(w, refreshToken, accessToken, h.cfg)
+	SetCookiesHelper(w, http.StatusOK, refreshToken, accessToken, h.cfg)
+	respondWithJSON(w, http.StatusOK, map[string]interface{}{"msg": "User updated successfully"})
 }
 
 func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
@@ -147,6 +148,7 @@ func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondWithJSON(w, http.StatusNoContent, nil)
+	SetCookiesHelper(w, http.StatusOK, "", "", h.cfg)
+	respondWithJSON(w, http.StatusOK, map[string]interface{}{"msg": "User deleted successfully"})
 	return
 }

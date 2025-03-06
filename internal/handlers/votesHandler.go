@@ -68,10 +68,16 @@ func (vh *voteHandler) CreateVote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userUUID, err := uuid.Parse(vote.UserId)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid user ID format", err)
+		return
+	}
+
 	voteRecord, err := vh.db.CreateVote(r.Context(), database.CreateVoteParams{
 		PollID:   pollUUID,
 		OptionID: optionUUID,
-		UserID:   vote.UserId,
+		UserID:   userUUID,
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
