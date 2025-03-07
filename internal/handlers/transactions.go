@@ -5,9 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/GhostVox/ghostvox.io-backend/internal/auth"
+	"github.com/GhostVox/ghostvox.io-backend/internal/config"
 	"github.com/GhostVox/ghostvox.io-backend/internal/database"
+	"github.com/google/uuid"
 )
 
 func addUserAndRefreshToken(ctx context.Context, db *sql.DB, queries *database.Queries, user *User) (string, database.User, error) {
@@ -89,4 +92,39 @@ func updateUserAndRefreshToken(ctx context.Context, db *sql.DB, queries *databas
 	}
 
 	return refreshTokenString, userRecord, nil
+}
+
+func deleteAndReplaceRefreshToken(ctx context.Context, cfg *config.APIConfig, userID uuid.UUID) (string, error) {
+	tx, err := cfg.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback()
+	qtx := cfg.Queries.WithTx(tx)
+
+	err = qtx.DeleteRefreshTokenByUserID(ctx, userID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return "", err
+	}
+
+	refreshTokenString, err := auth.GenerateRefreshToken()
+	if err != nil {
+		return "", err
+	}
+
+	refreshRecord, err := qtx.CreateRefreshToken(ctx, database.CreateRefreshTokenParams{
+		UserID:    userID,
+		Token:     refreshTokenString,
+		ExpiresAt: time.Now().Add(cfg.RefreshTokenExp),
+	})
+	if err != nil {
+		return "", err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return "", err
+	}
+
+	return refreshRecord.Token, nil
 }

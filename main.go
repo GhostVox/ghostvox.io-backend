@@ -16,6 +16,7 @@ import (
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/github"
 	"golang.org/x/oauth2/google"
 )
 
@@ -66,6 +67,18 @@ func main() {
 	googleRedirectURI := os.Getenv("GOOGLE_REDIRECT_URI")
 	if googleRedirectURI == "" {
 		log.Fatal("GOOGLE_REDIRECT_URI must be set")
+	}
+	githubClientID := os.Getenv("GITHUB_CLIENT_ID")
+	if githubClientID == "" {
+		log.Fatal("GITHUB_CLIENT_ID must be set")
+	}
+	githubClientSecret := os.Getenv("GITHUB_CLIENT_SECRET")
+	if githubClientSecret == "" {
+		log.Fatal("GITHUB_CLIENT_SECRET must be set")
+	}
+	githubRedirectURI := os.Getenv("GITHUB_REDIRECT_URI")
+	if githubRedirectURI == "" {
+		log.Fatal("GITHUB_REDIRECT_URI must be set")
 	}
 	mode := os.Getenv("MODE")
 	if mode == "" {
@@ -123,6 +136,16 @@ func main() {
 		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"},
 		Endpoint:     google.Endpoint,
 	}
+	var githubOAuthConfig = &oauth2.Config{
+		ClientID:     githubClientID,
+		ClientSecret: githubClientSecret,
+		RedirectURL:  githubRedirectURI,
+		Scopes: []string{
+			"user:email",
+			"read:user",
+		},
+		Endpoint: github.Endpoint,
+	}
 	// Initialize handlers
 	rootHandler := handlers.NewRootHandler(cfg)
 	pollHandler := handlers.NewPollHandler(cfg.Queries)
@@ -131,6 +154,7 @@ func main() {
 	userHandler := handlers.NewUserHandler(cfg)
 	authHandler := handlers.NewAuthHandler(cfg)
 	googleHandler := handlers.NewGoogleHandler(cfg, googleOAuthConfig)
+	githubHandler := handlers.NewGithubHandler(cfg, githubOAuthConfig)
 	adminHandler := handlers.NewAdminHandler(cfg)
 
 	mux := http.NewServeMux()
@@ -154,6 +178,8 @@ func main() {
 	// OAuth routes
 	mux.HandleFunc("GET /api/v1/auth/google/login", mw.LoggingMiddleware(googleHandler.GoogleLoginHandler))
 	mux.HandleFunc("GET /api/v1/auth/google/callback", mw.LoggingMiddleware(googleHandler.GoogleCallbackHandler))
+	mux.HandleFunc("GET /api/v1/auth/github/login", mw.LoggingMiddleware(githubHandler.GithubLoginHandler))
+	mux.HandleFunc("GET /api/v1/auth/github/callback", mw.LoggingMiddleware(githubHandler.GithubCallbackHandler))
 	// end
 	//Auth routes
 	mux.HandleFunc("POST /api/v1/auth/login", mw.LoggingMiddleware(authHandler.Login))

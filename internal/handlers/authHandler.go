@@ -93,36 +93,15 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusUnauthorized, "email", "Invalid email", err)
 		return
 	}
+
 	if err := auth.VerifyPassword(userRecord.HashedPassword.String, login.Password); err != nil {
 		respondWithError(w, http.StatusUnauthorized, "password", "Invalid password", err)
 		return
 	}
 
-	// Generate Refresh Token (JWT)
-	refreshToken, err := auth.GenerateRefreshToken()
+	refreshToken, err := deleteAndReplaceRefreshToken(r.Context(), h.cfg, userRecord.ID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Refresh token generation failed", err)
-		return
-	}
-	// check for existing user refresh token
-
-	_, err = h.cfg.Queries.GetRefreshTokenByUserID(r.Context(), userRecord.ID)
-	if err == nil {
-		// Delete existing refresh token
-		err = h.cfg.Queries.DeleteRefreshTokenByUserID(r.Context(), userRecord.ID)
-		if err != nil {
-			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Database refresh token deletion failed", err)
-			return
-		}
-	}
-	// Create Refresh Token in the database
-	_, err = h.cfg.Queries.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
-		UserID:    userRecord.ID,
-		Token:     refreshToken,
-		ExpiresAt: time.Now().Add(h.cfg.RefreshTokenExp),
-	})
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Database refresh token creation failed", err)
 		return
 	}
 

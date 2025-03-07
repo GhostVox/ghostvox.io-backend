@@ -122,7 +122,7 @@ func (gh *googleHandler) GoogleCallbackHandler(w http.ResponseWriter, r *http.Re
 	// Check if email already exists (prevents duplicate accounts)
 	existingUser, err := gh.cfg.Queries.GetUserByEmail(r.Context(), user.Email)
 	if err == nil && existingUser.Provider.String != googleProvider {
-		http.Redirect(w, r, gh.cfg.AccessOrigin, http.StatusConflict)
+		http.Redirect(w, r, gh.cfg.AccessOrigin+"/sign-in?error=Email+already+registered", http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -132,15 +132,15 @@ func (gh *googleHandler) GoogleCallbackHandler(w http.ResponseWriter, r *http.Re
 	if errors.Is(err, sql.ErrNoRows) {
 		refreshToken, newUserRecord, err := addUserAndRefreshToken(r.Context(), gh.cfg.DB, gh.cfg.Queries, &user)
 		if err != nil {
-			http.Redirect(w, r, gh.cfg.AccessOrigin, http.StatusInternalServerError)
+			http.Redirect(w, r, gh.cfg.AccessOrigin+"/sign-in?error=internal", http.StatusTemporaryRedirect)
 			return
 		}
 		userRecord = newUserRecord
 		refreshTokenString = refreshToken
 	} else {
-		refreshToken, err := auth.GenerateRefreshToken()
+		refreshToken, err := deleteAndReplaceRefreshToken(r.Context(), gh.cfg, existingUser.ID)
 		if err != nil {
-			http.Redirect(w, r, gh.cfg.AccessOrigin, http.StatusInternalServerError)
+			http.Redirect(w, r, gh.cfg.AccessOrigin+"/sign-in?error=internal", http.StatusTemporaryRedirect)
 			return
 		}
 		userRecord = existingUser
@@ -149,11 +149,11 @@ func (gh *googleHandler) GoogleCallbackHandler(w http.ResponseWriter, r *http.Re
 	// Generate Access Token
 	accessToken, err := auth.GenerateJWTAccessToken(userRecord.ID, userRecord.Role, userRecord.PictureUrl.String, gh.cfg.GhostvoxSecretKey, gh.cfg.AccessTokenExp)
 	if err != nil {
-		http.Redirect(w, r, gh.cfg.AccessOrigin, http.StatusInternalServerError)
+		http.Redirect(w, r, gh.cfg.AccessOrigin+"/sign-in?error=internal", http.StatusTemporaryRedirect)
 		return
 	}
 
 	// Set cookies
 	SetCookiesHelper(w, http.StatusOK, refreshTokenString, accessToken, gh.cfg)
-	http.Redirect(w, r, gh.cfg.AccessOrigin+"/dashboard", http.StatusOK)
+	http.Redirect(w, r, gh.cfg.AccessOrigin+"/dashboard", http.StatusTemporaryRedirect)
 }
