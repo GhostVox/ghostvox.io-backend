@@ -195,7 +195,7 @@ func (gh *githubHandler) GithubCallbackHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	// Generate Access Token
-	accessToken, err := auth.GenerateJWTAccessToken(userRecord.ID, userRecord.Role, userRecord.PictureUrl.String, gh.cfg.GhostvoxSecretKey, gh.cfg.AccessTokenExp)
+	accessToken, err := auth.GenerateJWTAccessToken(userRecord.ID, userRecord.Role, userRecord.PictureUrl.String, userRecord.FirstName, userRecord.LastName.String, userRecord.Email, gh.cfg.GhostvoxSecretKey, gh.cfg.AccessTokenExp)
 	if err != nil {
 		errMsg := url.QueryEscape("Failed to generate access token")
 		http.Redirect(w, r, gh.cfg.AccessOrigin+"/sign-in?error="+errMsg, http.StatusTemporaryRedirect)

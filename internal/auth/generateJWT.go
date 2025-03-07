@@ -11,18 +11,23 @@ import (
 )
 
 type CustomClaims struct {
-	UserId     string `json:"user_id"`
 	Role       string `json:"role"`
 	PictureUrl string `json:"picture_url"`
+	FirstName  string `json:"first_name"`
+	LastName   string `json:"last_name"`
+	Email      string `json:"email"`
 
 	jwt.RegisteredClaims
 }
 
-func GenerateJWTAccessToken(userID uuid.UUID, role, pictureUrl, jwtSecretKey string, AccessTokenExpiresAt time.Duration) (string, error) {
+func GenerateJWTAccessToken(userID uuid.UUID, role, pictureUrl, firstName, lastName, email string, jwtSecretKey string, AccessTokenExpiresAt time.Duration) (string, error) {
 	claims := CustomClaims{
 
 		Role:       role,
-		PictureUrl: "",
+		PictureUrl: pictureUrl,
+		FirstName:  firstName,
+		LastName:   lastName,
+		Email:      email,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "GhostVox",
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(AccessTokenExpiresAt)),

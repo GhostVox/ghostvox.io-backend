@@ -8,7 +8,7 @@ import (
 	"github.com/GhostVox/ghostvox.io-backend/internal/config"
 )
 
-const accessTokenCookieName string = "access_token"
+const accessTokenCookieName string = "accessToken"
 
 func AdminRole(cfg *config.APIConfig, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -23,7 +23,7 @@ func AdminRole(cfg *config.APIConfig, next http.Handler) http.Handler {
 			return
 		}
 		if !strings.EqualFold(claims.Role, "admin") {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			http.Error(w, "unauthorized", http.StatusForbidden)
 			return
 		}
 		next.ServeHTTP(w, r)

@@ -39,8 +39,11 @@ func TestValidateJWT_Valid(t *testing.T) {
 	userID := uuid.New()
 	role := "admin"
 	picture := "https://example.com/avatar.jpg"
+	firstname := "John"
+	lastname := "Doe"
+	email := "john.doe@example.com"
 	// Generate a token with a 15-minute expiration.
-	tokenStr, err := GenerateJWTAccessToken(userID, role, picture, jwtSecret, 15*time.Minute)
+	tokenStr, err := GenerateJWTAccessToken(userID, role, picture, firstname, lastname, email, jwtSecret, 15*time.Minute)
 	if err != nil {
 		t.Fatalf("unexpected error generating token: %v", err)
 	}
@@ -68,8 +71,11 @@ func TestValidateJWT_Expired(t *testing.T) {
 	userID := uuid.New()
 	role := "user"
 	picture := "https://example.com/avatar.jpg"
+	firstname := "John"
+	lastname := "Doe"
+	email := "john.doe@example.com"
 	// Generate a token that expired 1 minute ago.
-	tokenStr, err := GenerateJWTAccessToken(userID, role, picture, jwtSecret, -1*time.Minute)
+	tokenStr, err := GenerateJWTAccessToken(userID, role, picture, firstname, lastname, email, jwtSecret, -1*time.Minute)
 	if err != nil {
 		t.Fatalf("unexpected error generating token: %v", err)
 	}
@@ -92,8 +98,11 @@ func TestValidateJWT_InvalidSecret(t *testing.T) {
 	userID := uuid.New()
 	role := "user"
 	picture := "https://example.com/avatar.jpg"
+	firstname := "John"
+	lastname := "Doe"
+	email := "john.doe@example.com"
 
-	tokenStr, err := GenerateJWTAccessToken(userID, role, picture, jwtSecret, 15*time.Minute)
+	tokenStr, err := GenerateJWTAccessToken(userID, role, picture, firstname, lastname, email, jwtSecret, 15*time.Minute)
 	if err != nil {
 		t.Fatalf("unexpected error generating token: %v", err)
 	}
@@ -109,8 +118,7 @@ func TestValidateJWT_InvalidSecret(t *testing.T) {
 func TestValidateJWT_UnexpectedSigningMethod(t *testing.T) {
 	// Create a token with the SigningMethodNone.
 	claims := CustomClaims{
-		UserId: "user-wrong-method",
-		Role:   "user",
+		Role: "user",
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "GhostVox",
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
@@ -140,8 +148,11 @@ func TestGenerateJWTAccessToken(t *testing.T) {
 	role := "admin"
 	accessTokenDuration := 15 * time.Minute
 	picture := "https://example.com/avatar.jpg"
+	firstname := "John"
+	lastname := "Doe"
+	email := "john.doe@example.com"
 
-	tokenStr, err := GenerateJWTAccessToken(userID, role, picture, jwtSecret, accessTokenDuration)
+	tokenStr, err := GenerateJWTAccessToken(userID, role, picture, firstname, lastname, email, jwtSecret, accessTokenDuration)
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
