@@ -13,33 +13,30 @@ import (
 )
 
 const createOption = `-- name: CreateOption :one
-INSERT INTO options (name, value, poll_id)
-VALUES ($1, $2, $3)
-RETURNING id, name, value, created_at, updated_at, poll_id
+INSERT INTO options (name, poll_id)
+VALUES ($1, $2)
+RETURNING id, name, created_at, updated_at, poll_id
 `
 
 type CreateOptionParams struct {
 	Name   string
-	Value  string
 	PollID uuid.UUID
 }
 
 type CreateOptionRow struct {
 	ID        uuid.UUID
 	Name      string
-	Value     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	PollID    uuid.UUID
 }
 
 func (q *Queries) CreateOption(ctx context.Context, arg CreateOptionParams) (CreateOptionRow, error) {
-	row := q.db.QueryRowContext(ctx, createOption, arg.Name, arg.Value, arg.PollID)
+	row := q.db.QueryRowContext(ctx, createOption, arg.Name, arg.PollID)
 	var i CreateOptionRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
-		&i.Value,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PollID,
@@ -58,7 +55,7 @@ func (q *Queries) DeleteOption(ctx context.Context, id uuid.UUID) error {
 }
 
 const getOptionByID = `-- name: GetOptionByID :one
-SELECT id, name, value, created_at, updated_at, poll_id
+SELECT id, name, created_at, updated_at, poll_id
 FROM options
 WHERE id = $1
 `
@@ -66,7 +63,6 @@ WHERE id = $1
 type GetOptionByIDRow struct {
 	ID        uuid.UUID
 	Name      string
-	Value     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	PollID    uuid.UUID
@@ -78,7 +74,6 @@ func (q *Queries) GetOptionByID(ctx context.Context, id uuid.UUID) (GetOptionByI
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
-		&i.Value,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PollID,
@@ -87,7 +82,7 @@ func (q *Queries) GetOptionByID(ctx context.Context, id uuid.UUID) (GetOptionByI
 }
 
 const getOptionsByPollID = `-- name: GetOptionsByPollID :many
-SELECT id, name, value, created_at, updated_at, poll_id
+SELECT id, name, created_at, updated_at, poll_id
 FROM options
 WHERE poll_id = $1
 `
@@ -95,7 +90,6 @@ WHERE poll_id = $1
 type GetOptionsByPollIDRow struct {
 	ID        uuid.UUID
 	Name      string
-	Value     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	PollID    uuid.UUID
@@ -113,7 +107,6 @@ func (q *Queries) GetOptionsByPollID(ctx context.Context, pollID uuid.UUID) ([]G
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
-			&i.Value,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.PollID,
@@ -133,33 +126,30 @@ func (q *Queries) GetOptionsByPollID(ctx context.Context, pollID uuid.UUID) ([]G
 
 const updateOption = `-- name: UpdateOption :one
 UPDATE options
-SET name = coalesce($2, name), value = coalesce($3, value), updated_at = now()
+SET name = coalesce($2, name), updated_at = now()
 WHERE id = $1
-RETURNING id, name, value, created_at, updated_at, poll_id
+RETURNING id, name, created_at, updated_at, poll_id
 `
 
 type UpdateOptionParams struct {
-	ID    uuid.UUID
-	Name  string
-	Value string
+	ID   uuid.UUID
+	Name string
 }
 
 type UpdateOptionRow struct {
 	ID        uuid.UUID
 	Name      string
-	Value     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	PollID    uuid.UUID
 }
 
 func (q *Queries) UpdateOption(ctx context.Context, arg UpdateOptionParams) (UpdateOptionRow, error) {
-	row := q.db.QueryRowContext(ctx, updateOption, arg.ID, arg.Name, arg.Value)
+	row := q.db.QueryRowContext(ctx, updateOption, arg.ID, arg.Name)
 	var i UpdateOptionRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
-		&i.Value,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PollID,

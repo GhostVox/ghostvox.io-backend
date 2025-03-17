@@ -7,31 +7,34 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/GhostVox/ghostvox.io-backend/internal/config"
 	"github.com/GhostVox/ghostvox.io-backend/internal/database"
 	"github.com/google/uuid"
 )
 
 type poll struct {
-	UserID      string `json:"userId"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	ExpiresAt   string `json:"expiresAt"`
-	Status      string `json:"status"`
+	UserID      uuid.UUID      `json:"userId"`
+	Title       string         `json:"title"`
+	Description string         `json:"description"`
+	Category    string         `json:"category"`
+	ExpiresAt   int64          `json:"expiresAt"`
+	Status      string         `json:"status"`
+	Options     []CreateOption `json:"options"`
 }
 
 type pollHandler struct {
-	db *database.Queries
+	cfg *config.APIConfig
 }
 
-func NewPollHandler(db *database.Queries) *pollHandler {
+func NewPollHandler(cfg *config.APIConfig) *pollHandler {
 	return &pollHandler{
-		db: db,
+		cfg: cfg,
 	}
 }
 
 // Polls route
 func (h *pollHandler) GetAllPolls(w http.ResponseWriter, r *http.Request) {
-	polls, err := h.db.GetAllPolls(r.Context())
+	polls, err := h.cfg.Queries.GetAllPolls(r.Context())
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "No polls found", err)
@@ -59,7 +62,7 @@ func (h *pollHandler) GetPoll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	poll, err := h.db.GetPoll(r.Context(), pollUUID)
+	poll, err := h.cfg.Queries.GetPoll(r.Context(), pollUUID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "No poll found", err)
@@ -82,35 +85,15 @@ func (h *pollHandler) CreatePoll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	expiresAt, err := time.Parse(time.RFC3339, newPoll.ExpiresAt)
+	err := CreatePollWithOptions(r.Context(), h.cfg.DB, h.cfg, newPoll)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid ExpiresAt", err)
+		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
 		return
 	}
-	if newPoll.ExpiresAt == "" {
-		expiresAt = time.Now().UTC().Add(time.Duration(24 * time.Hour))
-	}
-	userUUID, err := uuid.Parse(newPoll.UserID)
 
-	pollRecord, err := h.db.CreatePoll(r.Context(), database.CreatePollParams{
-		UserID:      userUUID,
-		Description: newPoll.Description,
-		Title:       newPoll.Title,
-		ExpiresAt:   expiresAt,
-		Status:      database.PollStatus(newPoll.Status),
-	})
-
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "No poll found", err)
-			return
-		} else {
-			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
-			return
-		}
-	}
-
-	respondWithJSON(w, http.StatusCreated, pollRecord)
+	respondWithJSON(w, http.StatusCreated, struct {
+		msg string
+	}{msg: http.StatusText(http.StatusOK)})
 	return
 }
 
@@ -129,19 +112,10 @@ func (h *pollHandler) UpdatePoll(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid poll id in pathvalue", err)
 		return
 	}
-	expiresAt, err := time.Parse(time.RFC3339, newPoll.ExpiresAt)
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid ExpiresAt expect format to be 2023-10-05T15:04:05Z07:00", err)
-		return
-	}
-	userUUID, err := uuid.Parse(newPoll.UserID)
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid user id", err)
-		return
-	}
-	pollRecord, err := h.db.UpdatePoll(r.Context(), database.UpdatePollParams{
+	expiresAt := time.Now().Add(time.Duration(newPoll.ExpiresAt))
+	pollRecord, err := h.cfg.Queries.UpdatePoll(r.Context(), database.UpdatePollParams{
 		ID:          pollUUID,
-		UserID:      userUUID,
+		UserID:      newPoll.UserID,
 		Description: newPoll.Description,
 		Title:       newPoll.Title,
 		ExpiresAt:   expiresAt,
@@ -175,7 +149,7 @@ func (h *pollHandler) DeletePoll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.db.DeletePoll(r.Context(), pollUUID)
+	err = h.cfg.Queries.DeletePoll(r.Context(), pollUUID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "Poll not found", err)

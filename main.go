@@ -148,7 +148,7 @@ func main() {
 	}
 	// Initialize handlers
 	rootHandler := handlers.NewRootHandler(cfg)
-	pollHandler := handlers.NewPollHandler(cfg.Queries)
+	pollHandler := handlers.NewPollHandler(cfg)
 	voteHandler := handlers.NewVoteHandler(cfg.Queries)
 	optionHandler := handlers.NewOptionHandler(cfg)
 	userHandler := handlers.NewUserHandler(cfg)

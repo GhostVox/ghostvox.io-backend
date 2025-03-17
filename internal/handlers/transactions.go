@@ -128,3 +128,41 @@ func deleteAndReplaceRefreshToken(ctx context.Context, cfg *config.APIConfig, us
 
 	return refreshRecord.Token, nil
 }
+
+func CreatePollWithOptions(ctx context.Context, db *sql.DB, cfg *config.APIConfig, poll poll) (err error) {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	qtx := cfg.Queries.WithTx(tx)
+
+	expiresAt := time.Now().Add(time.Duration(poll.ExpiresAt))
+	pollRecord, err := qtx.CreatePoll(ctx, database.CreatePollParams{
+		UserID:      poll.UserID,
+		Title:       poll.Title,
+		Description: poll.Description,
+		Category:    poll.Category,
+		ExpiresAt:   expiresAt,
+		Status:      database.PollStatus("Active"),
+	})
+	if err != nil {
+		return err
+	}
+	for _, option := range poll.Options {
+		_, err := qtx.CreateOption(ctx, database.CreateOptionParams{
+			PollID: pollRecord.ID,
+			Name:   option.Name,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

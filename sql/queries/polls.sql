@@ -1,8 +1,8 @@
 -- name: CreatePoll :one
 INSERT INTO
-    polls (user_id, title, description, expires_at, status)
+    polls (user_id, title, category, description, expires_at, status)
 VALUES
-    ($1, $2, $3, $4, $5)
+    ($1, $2, $3, $4, $5, $6)
 RETURNING
     *;
 
@@ -42,12 +42,13 @@ UPDATE
 SET
     user_id = coalesce($1, user_id),
     title = coalesce($2, title),
-    description = coalesce($3, description),
-    expires_at = coalesce($4, expires_at),
-    status = coalesce($5, status),
+    category = coalesce($3, category),
+    description = coalesce($4, description),
+    expires_at = coalesce($5, expires_at),
+    status = coalesce($6, status),
     updated_at = now()
 WHERE
-    id = $6 RETURNING *;
+    id = $7 RETURNING *;
 
 -- name: DeletePoll :exec
 DELETE FROM

@@ -14,10 +14,12 @@ import (
 type Option struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
-	Value     string `json:"value"`
 	PollID    string `json:"poll_id"`
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
+}
+type CreateOption struct {
+	Name string `json:"name"`
 }
 type OptionsRequest struct {
 	Options []Option `json:"options"`
@@ -104,7 +106,6 @@ func (oh *optionHandler) CreateOptions(w http.ResponseWriter, r *http.Request) {
 	for _, option := range pollOptions.Options {
 		optionRecord, err := oh.cfg.Queries.CreateOption(r.Context(), database.CreateOptionParams{
 			Name:   option.Name,
-			Value:  option.Value,
 			PollID: pollUUID,
 		})
 		if err != nil {
@@ -148,9 +149,8 @@ func (oh *optionHandler) UpdateOption(w http.ResponseWriter, r *http.Request) {
 	}
 
 	optionRecord, err := oh.cfg.Queries.UpdateOption(r.Context(), database.UpdateOptionParams{
-		ID:    optionUUID,
-		Name:  option.Name,
-		Value: option.Value,
+		ID:   optionUUID,
+		Name: option.Name,
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

@@ -60,7 +60,6 @@ type Option struct {
 	ID        uuid.UUID
 	Name      string
 	PollID    uuid.UUID
-	Value     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -70,6 +69,7 @@ type Poll struct {
 	UserID      uuid.UUID
 	Title       string
 	Description string
+	Category    string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	ExpiresAt   time.Time

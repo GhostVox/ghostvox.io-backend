@@ -70,8 +70,8 @@ func (q *Queries) CountVotesByOptionAndPollID(ctx context.Context, arg CountVote
 const getVotesByOptionAndPollID = `-- name: GetVotesByOptionAndPollID :many
 SELECT
     votes.id, votes.poll_id, votes.option_id, votes.created_at, votes.user_id,
-    op.id, op.name, op.poll_id, op.value, op.created_at, op.updated_at,
-    po.id, po.user_id, po.title, po.description, po.created_at, po.updated_at, po.expires_at, po.status
+    op.id, op.name, op.poll_id, op.created_at, op.updated_at,
+    po.id, po.user_id, po.title, po.description, po.category, po.created_at, po.updated_at, po.expires_at, po.status
 FROM
     votes
     JOIN options op ON votes.option_id = op.id
@@ -95,13 +95,13 @@ type GetVotesByOptionAndPollIDRow struct {
 	ID_2        uuid.UUID
 	Name        string
 	PollID_2    uuid.UUID
-	Value       string
 	CreatedAt_2 time.Time
 	UpdatedAt   time.Time
 	ID_3        uuid.UUID
 	UserID_2    uuid.UUID
 	Title       string
 	Description string
+	Category    string
 	CreatedAt_3 time.Time
 	UpdatedAt_2 time.Time
 	ExpiresAt   time.Time
@@ -126,13 +126,13 @@ func (q *Queries) GetVotesByOptionAndPollID(ctx context.Context, arg GetVotesByO
 			&i.ID_2,
 			&i.Name,
 			&i.PollID_2,
-			&i.Value,
 			&i.CreatedAt_2,
 			&i.UpdatedAt,
 			&i.ID_3,
 			&i.UserID_2,
 			&i.Title,
 			&i.Description,
+			&i.Category,
 			&i.CreatedAt_3,
 			&i.UpdatedAt_2,
 			&i.ExpiresAt,

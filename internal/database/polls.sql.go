@@ -14,16 +14,17 @@ import (
 
 const createPoll = `-- name: CreatePoll :one
 INSERT INTO
-    polls (user_id, title, description, expires_at, status)
+    polls (user_id, title, category, description, expires_at, status)
 VALUES
-    ($1, $2, $3, $4, $5)
+    ($1, $2, $3, $4, $5, $6)
 RETURNING
-    id, user_id, title, description, created_at, updated_at, expires_at, status
+    id, user_id, title, description, category, created_at, updated_at, expires_at, status
 `
 
 type CreatePollParams struct {
 	UserID      uuid.UUID
 	Title       string
+	Category    string
 	Description string
 	ExpiresAt   time.Time
 	Status      PollStatus
@@ -33,6 +34,7 @@ func (q *Queries) CreatePoll(ctx context.Context, arg CreatePollParams) (Poll, e
 	row := q.db.QueryRowContext(ctx, createPoll,
 		arg.UserID,
 		arg.Title,
+		arg.Category,
 		arg.Description,
 		arg.ExpiresAt,
 		arg.Status,
@@ -43,6 +45,7 @@ func (q *Queries) CreatePoll(ctx context.Context, arg CreatePollParams) (Poll, e
 		&i.UserID,
 		&i.Title,
 		&i.Description,
+		&i.Category,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ExpiresAt,
@@ -55,7 +58,7 @@ const deletePoll = `-- name: DeletePoll :exec
 DELETE FROM
     polls
 WHERE
-    id = $1 RETURNING id, user_id, title, description, created_at, updated_at, expires_at, status
+    id = $1 RETURNING id, user_id, title, description, category, created_at, updated_at, expires_at, status
 `
 
 func (q *Queries) DeletePoll(ctx context.Context, id uuid.UUID) error {
@@ -65,7 +68,7 @@ func (q *Queries) DeletePoll(ctx context.Context, id uuid.UUID) error {
 
 const getAllPolls = `-- name: GetAllPolls :many
 SELECT
-    id, user_id, title, description, created_at, updated_at, expires_at, status
+    id, user_id, title, description, category, created_at, updated_at, expires_at, status
 FROM
     polls
 `
@@ -84,6 +87,7 @@ func (q *Queries) GetAllPolls(ctx context.Context) ([]Poll, error) {
 			&i.UserID,
 			&i.Title,
 			&i.Description,
+			&i.Category,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ExpiresAt,
@@ -104,7 +108,7 @@ func (q *Queries) GetAllPolls(ctx context.Context) ([]Poll, error) {
 
 const getPoll = `-- name: GetPoll :one
 SELECT
-    id, user_id, title, description, created_at, updated_at, expires_at, status
+    id, user_id, title, description, category, created_at, updated_at, expires_at, status
 FROM
     polls
 WHERE
@@ -119,6 +123,7 @@ func (q *Queries) GetPoll(ctx context.Context, id uuid.UUID) (Poll, error) {
 		&i.UserID,
 		&i.Title,
 		&i.Description,
+		&i.Category,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ExpiresAt,
@@ -129,7 +134,7 @@ func (q *Queries) GetPoll(ctx context.Context, id uuid.UUID) (Poll, error) {
 
 const getPollsByStatus = `-- name: GetPollsByStatus :many
 SELECT
-    id, user_id, title, description, created_at, updated_at, expires_at, status
+    id, user_id, title, description, category, created_at, updated_at, expires_at, status
 FROM
     polls
 WHERE
@@ -150,6 +155,7 @@ func (q *Queries) GetPollsByStatus(ctx context.Context, status PollStatus) ([]Po
 			&i.UserID,
 			&i.Title,
 			&i.Description,
+			&i.Category,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ExpiresAt,
@@ -170,7 +176,7 @@ func (q *Queries) GetPollsByStatus(ctx context.Context, status PollStatus) ([]Po
 
 const getPollsByUser = `-- name: GetPollsByUser :many
 SELECT
-    id, user_id, title, description, created_at, updated_at, expires_at, status
+    id, user_id, title, description, category, created_at, updated_at, expires_at, status
 FROM
     polls
 WHERE
@@ -191,6 +197,7 @@ func (q *Queries) GetPollsByUser(ctx context.Context, userID uuid.UUID) ([]Poll,
 			&i.UserID,
 			&i.Title,
 			&i.Description,
+			&i.Category,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ExpiresAt,
@@ -215,17 +222,19 @@ UPDATE
 SET
     user_id = coalesce($1, user_id),
     title = coalesce($2, title),
-    description = coalesce($3, description),
-    expires_at = coalesce($4, expires_at),
-    status = coalesce($5, status),
+    category = coalesce($3, category),
+    description = coalesce($4, description),
+    expires_at = coalesce($5, expires_at),
+    status = coalesce($6, status),
     updated_at = now()
 WHERE
-    id = $6 RETURNING id, user_id, title, description, created_at, updated_at, expires_at, status
+    id = $7 RETURNING id, user_id, title, description, category, created_at, updated_at, expires_at, status
 `
 
 type UpdatePollParams struct {
 	UserID      uuid.UUID
 	Title       string
+	Category    string
 	Description string
 	ExpiresAt   time.Time
 	Status      PollStatus
@@ -236,6 +245,7 @@ func (q *Queries) UpdatePoll(ctx context.Context, arg UpdatePollParams) (Poll, e
 	row := q.db.QueryRowContext(ctx, updatePoll,
 		arg.UserID,
 		arg.Title,
+		arg.Category,
 		arg.Description,
 		arg.ExpiresAt,
 		arg.Status,
@@ -247,6 +257,7 @@ func (q *Queries) UpdatePoll(ctx context.Context, arg UpdatePollParams) (Poll, e
 		&i.UserID,
 		&i.Title,
 		&i.Description,
+		&i.Category,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ExpiresAt,

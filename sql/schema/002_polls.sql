@@ -8,6 +8,7 @@ CREATE TABLE polls (
     user_id UUID NOT NULL,
     title TEXT NOT NULL,
     description TEXT NOT NULL,
+    category TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now (),
     updated_at TIMESTAMP NOT NULL DEFAULT now (),
     expires_at TIMESTAMP NOT NULL DEFAULT now () + INTERVAL '1 day',
