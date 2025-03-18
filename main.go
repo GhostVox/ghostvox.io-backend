@@ -166,6 +166,7 @@ func main() {
 
 	// Polls route ✅
 	mux.HandleFunc("GET /api/v1/polls", mw.LoggingMiddleware(pollHandler.GetAllPolls))
+	mux.HandleFunc("GET /api/v1/polls/active", mw.LoggingMiddleware(pollHandler.GetAllActivePolls))
 
 	mux.HandleFunc("GET /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.GetPoll))
 
@@ -202,8 +203,6 @@ func main() {
 	// Votes Routes
 
 	mux.HandleFunc("POST /api/v1/polls/{pollId}/votes", mw.LoggingMiddleware(voteHandler.CreateVote))
-
-	mux.HandleFunc("GET /api/v1/polls/{pollId}/votes", mw.LoggingMiddleware(voteHandler.GetVotesByPoll))
 
 	mux.HandleFunc("DELETE /api/v1/votes/{voteId}", mw.LoggingMiddleware(voteHandler.DeleteVote))
 

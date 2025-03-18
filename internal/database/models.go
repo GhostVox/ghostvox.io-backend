@@ -56,10 +56,20 @@ func (ns NullPollStatus) Value() (driver.Value, error) {
 	return string(ns.PollStatus), nil
 }
 
+type Comment struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	PollID    uuid.UUID
+	Content   string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 type Option struct {
 	ID        uuid.UUID
 	Name      string
 	PollID    uuid.UUID
+	Count     int32
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

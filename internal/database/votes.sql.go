@@ -62,45 +62,23 @@ func (q *Queries) DeleteVotesByPollID(ctx context.Context, pollID uuid.UUID) err
 	return err
 }
 
+const getTotalVotesByPollID = `-- name: GetTotalVotesByPollID :one
+SELECT count(*) FROM votes WHERE poll_id = $1
+`
+
+func (q *Queries) GetTotalVotesByPollID(ctx context.Context, pollID uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getTotalVotesByPollID, pollID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getVotesByOptionID = `-- name: GetVotesByOptionID :many
 SELECT id, poll_id, option_id, created_at, user_id FROM votes WHERE option_id = $1
 `
 
 func (q *Queries) GetVotesByOptionID(ctx context.Context, optionID uuid.UUID) ([]Vote, error) {
 	rows, err := q.db.QueryContext(ctx, getVotesByOptionID, optionID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Vote
-	for rows.Next() {
-		var i Vote
-		if err := rows.Scan(
-			&i.ID,
-			&i.PollID,
-			&i.OptionID,
-			&i.CreatedAt,
-			&i.UserID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getVotesByPollID = `-- name: GetVotesByPollID :many
-SELECT id, poll_id, option_id, created_at, user_id FROM votes WHERE poll_id = $1
-`
-
-func (q *Queries) GetVotesByPollID(ctx context.Context, pollID uuid.UUID) ([]Vote, error) {
-	rows, err := q.db.QueryContext(ctx, getVotesByPollID, pollID)
 	if err != nil {
 		return nil, err
 	}

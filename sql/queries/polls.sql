@@ -55,3 +55,27 @@ DELETE FROM
     polls
 WHERE
     id = $1 RETURNING *;
+
+
+-- name: GetAllActivePollsList :many
+SELECT
+    polls.id as PollId,
+    polls.title as Title,
+    polls.category as Category,
+    polls.description as Description,
+    polls.expires_at as ExpiresAt,
+    polls.status as Status,
+    polls.created_at as CreatedAt,
+    polls.updated_at as UpdatedAt,
+    users.first_name as CreatorFirstName,
+    users.last_name as CreatorLastName
+
+FROM
+    polls join users on polls.user_id = users.id
+WHERE
+    polls.status = $1
+    Group by polls.id, users.id
+    Order by polls.expires_at desc
+
+    limit $2 offset $3
+    ;

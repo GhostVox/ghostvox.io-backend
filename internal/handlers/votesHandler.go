@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -25,27 +24,6 @@ func NewVoteHandler(db *database.Queries) *voteHandler {
 	return &voteHandler{
 		db: db,
 	}
-}
-func (vh *voteHandler) GetVotesByPoll(w http.ResponseWriter, r *http.Request) {
-
-	pollId := r.PathValue("pollId")
-	pollUUID, err := uuid.Parse(pollId)
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Missing poll id path value", err)
-		return
-	}
-	votes, err := vh.db.GetVotesByPollID(context.Background(), pollUUID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "No votes found for poll", err)
-			return
-		}
-		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Failed to retrieve votes", err)
-		return
-	}
-
-	respondWithJSON(w, http.StatusOK, votes)
-
 }
 
 func (vh *voteHandler) CreateVote(w http.ResponseWriter, r *http.Request) {

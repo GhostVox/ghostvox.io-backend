@@ -4,7 +4,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/GhostVox/ghostvox.io-backend/internal/config"
@@ -20,6 +22,18 @@ type poll struct {
 	ExpiresAt   int64          `json:"expiresAt"`
 	Status      string         `json:"status"`
 	Options     []CreateOption `json:"options"`
+}
+
+type ActivePollResponse struct {
+	ID          uuid.UUID                        `json:"id"`
+	Title       string                           `json:"title"`
+	Creator     string                           `json:"creator"`
+	Description string                           `json:"description"`
+	Category    string                           `json:"category"`
+	DaysLeft    int64                            `json:"daysLeft"`
+	Options     []database.GetOptionsByPollIDRow `json:"options"`
+	Votes       int64                            `json:"votes"`
+	Comments    int64                            `json:"comments"`
 }
 
 type pollHandler struct {
@@ -160,5 +174,78 @@ func (h *pollHandler) DeletePoll(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	respondWithJSON(w, http.StatusNoContent, nil)
+	return
+}
+
+func (h *pollHandler) GetAllActivePolls(w http.ResponseWriter, r *http.Request) {
+	limitParam := r.URL.Query().Get("limit")
+	if limitParam == "" {
+		limitParam = "20"
+	}
+
+	offsetParam := r.URL.Query().Get("offset")
+	if offsetParam == "" {
+		offsetParam = "0"
+	}
+
+	limit, err := strconv.Atoi(limitParam)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid limit parameter", err)
+		return
+	}
+	offset, err := strconv.Atoi(offsetParam)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid offset parameter", err)
+		return
+	}
+
+	polls, err := h.cfg.Queries.GetAllActivePollsList(r.Context(), database.GetAllActivePollsListParams{
+		Limit:  int32(limit),
+		Offset: int32(offset),
+		Status: "Active",
+	})
+	fmt.Println(polls)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "No active polls found", err)
+			return
+		} else {
+			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
+			return
+		}
+	}
+	var ResponsePolls []ActivePollResponse
+	for _, poll := range polls {
+		options, err := h.cfg.Queries.GetOptionsByPollID(r.Context(), poll.Pollid)
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
+			return
+		}
+		voteCount, err := h.cfg.Queries.GetTotalVotesByPollID(r.Context(), poll.Pollid)
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
+			return
+		}
+		commentCount, err := h.cfg.Queries.GetTotalComments(r.Context(), poll.Pollid)
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
+			return
+		}
+		pollResponse := ActivePollResponse{
+			ID:          poll.Pollid,
+			Title:       poll.Title,
+			Creator:     poll.Creatorfirstname + " " + poll.Creatorlastname.String,
+			Description: poll.Description,
+			Category:    poll.Category,
+			DaysLeft:    int64(poll.Expiresat.Sub(time.Now()).Hours() / 24),
+			Options:     options,
+			Votes:       voteCount,
+			Comments:    commentCount,
+		}
+
+		ResponsePolls = append(ResponsePolls, pollResponse)
+	}
+	respondWithJSON(w, http.StatusOK, ResponsePolls)
 	return
 }

@@ -7,6 +7,7 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -64,6 +65,82 @@ WHERE
 func (q *Queries) DeletePoll(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.ExecContext(ctx, deletePoll, id)
 	return err
+}
+
+const getAllActivePollsList = `-- name: GetAllActivePollsList :many
+SELECT
+    polls.id as PollId,
+    polls.title as Title,
+    polls.category as Category,
+    polls.description as Description,
+    polls.expires_at as ExpiresAt,
+    polls.status as Status,
+    polls.created_at as CreatedAt,
+    polls.updated_at as UpdatedAt,
+    users.first_name as CreatorFirstName,
+    users.last_name as CreatorLastName
+
+FROM
+    polls join users on polls.user_id = users.id
+WHERE
+    polls.status = $1
+    Group by polls.id, users.id
+    Order by polls.expires_at desc
+
+    limit $2 offset $3
+`
+
+type GetAllActivePollsListParams struct {
+	Status PollStatus
+	Limit  int32
+	Offset int32
+}
+
+type GetAllActivePollsListRow struct {
+	Pollid           uuid.UUID
+	Title            string
+	Category         string
+	Description      string
+	Expiresat        time.Time
+	Status           PollStatus
+	Createdat        time.Time
+	Updatedat        time.Time
+	Creatorfirstname string
+	Creatorlastname  sql.NullString
+}
+
+func (q *Queries) GetAllActivePollsList(ctx context.Context, arg GetAllActivePollsListParams) ([]GetAllActivePollsListRow, error) {
+	rows, err := q.db.QueryContext(ctx, getAllActivePollsList, arg.Status, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllActivePollsListRow
+	for rows.Next() {
+		var i GetAllActivePollsListRow
+		if err := rows.Scan(
+			&i.Pollid,
+			&i.Title,
+			&i.Category,
+			&i.Description,
+			&i.Expiresat,
+			&i.Status,
+			&i.Createdat,
+			&i.Updatedat,
+			&i.Creatorfirstname,
+			&i.Creatorlastname,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getAllPolls = `-- name: GetAllPolls :many

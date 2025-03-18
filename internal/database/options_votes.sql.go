@@ -70,7 +70,7 @@ func (q *Queries) CountVotesByOptionAndPollID(ctx context.Context, arg CountVote
 const getVotesByOptionAndPollID = `-- name: GetVotesByOptionAndPollID :many
 SELECT
     votes.id, votes.poll_id, votes.option_id, votes.created_at, votes.user_id,
-    op.id, op.name, op.poll_id, op.created_at, op.updated_at,
+    op.id, op.name, op.poll_id, op.count, op.created_at, op.updated_at,
     po.id, po.user_id, po.title, po.description, po.category, po.created_at, po.updated_at, po.expires_at, po.status
 FROM
     votes
@@ -95,6 +95,7 @@ type GetVotesByOptionAndPollIDRow struct {
 	ID_2        uuid.UUID
 	Name        string
 	PollID_2    uuid.UUID
+	Count       int32
 	CreatedAt_2 time.Time
 	UpdatedAt   time.Time
 	ID_3        uuid.UUID
@@ -126,6 +127,7 @@ func (q *Queries) GetVotesByOptionAndPollID(ctx context.Context, arg GetVotesByO
 			&i.ID_2,
 			&i.Name,
 			&i.PollID_2,
+			&i.Count,
 			&i.CreatedAt_2,
 			&i.UpdatedAt,
 			&i.ID_3,
