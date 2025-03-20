@@ -79,3 +79,11 @@ WHERE
 
     limit $2 offset $3
     ;
+
+-- name: GetPollsThatHaveExpired :many
+SELECT
+    *
+FROM
+    polls
+WHERE
+    expires_at < now();

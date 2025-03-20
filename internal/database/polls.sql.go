@@ -293,6 +293,48 @@ func (q *Queries) GetPollsByUser(ctx context.Context, userID uuid.UUID) ([]Poll,
 	return items, nil
 }
 
+const getPollsThatHaveExpired = `-- name: GetPollsThatHaveExpired :many
+SELECT
+    id, user_id, title, description, category, created_at, updated_at, expires_at, status
+FROM
+    polls
+WHERE
+    expires_at < now()
+`
+
+func (q *Queries) GetPollsThatHaveExpired(ctx context.Context) ([]Poll, error) {
+	rows, err := q.db.QueryContext(ctx, getPollsThatHaveExpired)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Poll
+	for rows.Next() {
+		var i Poll
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Title,
+			&i.Description,
+			&i.Category,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ExpiresAt,
+			&i.Status,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updatePoll = `-- name: UpdatePoll :one
 UPDATE
     polls

@@ -1,20 +1,23 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"time"
 
 	"database/sql"
 
 	"github.com/GhostVox/ghostvox.io-backend/internal/config"
+	"github.com/GhostVox/ghostvox.io-backend/internal/cron"
 	"github.com/GhostVox/ghostvox.io-backend/internal/database"
 	"github.com/GhostVox/ghostvox.io-backend/internal/handlers"
 	mw "github.com/GhostVox/ghostvox.io-backend/internal/middleware"
-	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
 	"golang.org/x/oauth2/google"
@@ -26,86 +29,13 @@ func main() {
 		port = ":8080"
 	)
 
-	// Load environment variables from .env file
-	err := godotenv.Load()
+	envConfig, err := LoadEnv()
 	if err != nil {
-		log.Fatalf("Error loading .env file")
-	}
-
-	db_URL := os.Getenv("DB_URL")
-	if db_URL == "" {
-		log.Fatal("DB_URL must be set")
-	}
-
-	platform := os.Getenv("PLATFORM")
-	if platform == "" {
-		log.Fatal("PLATFORM must be set")
-	}
-
-	ghostvoxSecretKey := os.Getenv("GHOSTVOX_SECRET_KEY")
-	if ghostvoxSecretKey == "" {
-		log.Fatal("GHOSTVOX_SECRET_KEY must be set")
-	}
-
-	accesstokenExp := os.Getenv("ACCESS_TOKEN_EXPIRES")
-	if accesstokenExp == "" {
-		log.Fatal("ACCESS_TOKEN_EXPIRES must be set")
-	}
-
-	refreshTokenExp := os.Getenv("REFRESH_TOKEN_EXPIRES")
-	if refreshTokenExp == "" {
-		log.Fatal("REFRESH_TOKEN_EXPIRES must be set")
-	}
-	googleClientID := os.Getenv("GOOGLE_CLIENT_ID")
-	if googleClientID == "" {
-		log.Fatal("GOOGLE_CLIENT_ID must be set")
-	}
-	googleClientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
-	if googleClientSecret == "" {
-		log.Fatal("GOOGLE_CLIENT_SECRET must be set")
-	}
-	googleRedirectURI := os.Getenv("GOOGLE_REDIRECT_URI")
-	if googleRedirectURI == "" {
-		log.Fatal("GOOGLE_REDIRECT_URI must be set")
-	}
-	githubClientID := os.Getenv("GITHUB_CLIENT_ID")
-	if githubClientID == "" {
-		log.Fatal("GITHUB_CLIENT_ID must be set")
-	}
-	githubClientSecret := os.Getenv("GITHUB_CLIENT_SECRET")
-	if githubClientSecret == "" {
-		log.Fatal("GITHUB_CLIENT_SECRET must be set")
-	}
-	githubRedirectURI := os.Getenv("GITHUB_REDIRECT_URI")
-	if githubRedirectURI == "" {
-		log.Fatal("GITHUB_REDIRECT_URI must be set")
-	}
-	mode := os.Getenv("MODE")
-	if mode == "" {
-		log.Fatal("MODE must be set")
-	}
-
-	https := os.Getenv("USE_HTTPS")
-	if https == "" {
-		log.Fatal("HTTPS must be set")
-	}
-	accessOrigin := os.Getenv("ACCESS_ORIGIN")
-	if accessOrigin == "" {
-		log.Fatal("ACCESS_ORIGIN must be set")
-	}
-
-	accesstokenExpDur, err := time.ParseDuration(accesstokenExp)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	refreshTokenExpDur, err := time.ParseDuration(refreshTokenExp)
-	if err != nil {
-		log.Fatal(err)
+		log.Fatal(fmt.Sprintf("Error loading environment variables: %v", err))
 	}
 
 	//Connect to database
-	db, err := sql.Open("postgres", db_URL)
+	db, err := sql.Open("postgres", envConfig.DBURL)
 	if err != nil {
 		log.Fatal(fmt.Sprintf("Error connecting to database: %v", err))
 	}
@@ -119,27 +49,31 @@ func main() {
 	cfg := &config.APIConfig{
 		DB:                db,
 		Queries:           dbConnection,
-		Platform:          platform,
+		Platform:          envConfig.Platform,
 		Port:              port,
-		AccessTokenExp:    accesstokenExpDur,
-		RefreshTokenExp:   refreshTokenExpDur,
-		GhostvoxSecretKey: ghostvoxSecretKey,
-		Mode:              mode,
-		UseHTTPS:          https,
-		AccessOrigin:      accessOrigin,
+		AccessTokenExp:    envConfig.AccessTokenExp,
+		RefreshTokenExp:   envConfig.RefreshTokenExp,
+		GhostvoxSecretKey: envConfig.GhostvoxSecretKey,
+		Mode:              envConfig.Mode,
+		UseHTTPS:          envConfig.UseHTTPS,
+		AccessOrigin:      envConfig.AccessOrigin,
+	}
+
+	CronCFG := &cron.CronConfig{
+		CheckForExpiredPolls: envConfig.CronCheckExpiredPolls,
 	}
 	// OAuth2 configuration
-	var googleOAuthConfig = &oauth2.Config{
-		ClientID:     googleClientID,
-		ClientSecret: googleClientSecret,
-		RedirectURL:  googleRedirectURI,
+	googleOAuthConfig := &oauth2.Config{
+		ClientID:     envConfig.GoogleClientID,
+		ClientSecret: envConfig.GoogleClientSecret,
+		RedirectURL:  envConfig.GoogleRedirectURI,
 		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"},
 		Endpoint:     google.Endpoint,
 	}
-	var githubOAuthConfig = &oauth2.Config{
-		ClientID:     githubClientID,
-		ClientSecret: githubClientSecret,
-		RedirectURL:  githubRedirectURI,
+	githubOAuthConfig := &oauth2.Config{
+		ClientID:     envConfig.GithubClientID,
+		ClientSecret: envConfig.GithubClientSecret,
+		RedirectURL:  envConfig.GithubRedirectURI,
 		Scopes: []string{
 			"user:email",
 			"read:user",
@@ -159,7 +93,7 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	wrappedMux := mw.CorsMiddleware(mux, accessOrigin)
+	wrappedMux := mw.CorsMiddleware(mux, envConfig.AccessOrigin)
 	//  start attaching route handlers to cfg.mux
 	// Redirects users to the root of the API and returns route endpoints for the API
 	mux.HandleFunc("/api/v1/", mw.LoggingMiddleware(rootHandler.HandleRoot))
@@ -235,30 +169,70 @@ func main() {
 		Handler: wrappedMux,
 	}
 
-	if mode == "production" || https == "true" {
+	if envConfig.Mode == "production" || envConfig.UseHTTPS == "true" {
 		// HTTPS mode
 		certFile := os.Getenv("CERT_FILE")
 		keyFile := os.Getenv("KEY_FILE")
 
 		// Use default paths if not specified
-		if certFile == "" {
+		if envConfig.CertFile == "" {
 			certFile = "./localhost+2.pem"
 		}
-		if keyFile == "" {
-			keyFile = "./localhost+2-key.pem"
+		if envConfig.KeyFile == "" {
+			envConfig.KeyFile = "./localhost+2-key.pem"
 		}
+		stop := make(chan os.Signal, 1)
+		signal.Notify(stop, os.Interrupt)
 
-		log.Printf("Starting server in HTTPS mode on port %s\n", port)
-		err := server.ListenAndServeTLS(certFile, keyFile)
+		log.Println("Starting cron jobs")
+		go func() {
+			cronCtx := context.Background()
+			CronCFG.StartCronJobs(cronCtx, cfg)
+		}()
+		go func() {
+			log.Printf("Starting server in HTTPS mode on port %s\n", port)
+			err := server.ListenAndServeTLS(certFile, keyFile)
+			if err != nil {
+				log.Fatal("Server failed to start:", err)
+			}
+		}()
+		<-stop
+		fmt.Println("Shuting down server and cron jobs")
+		serverCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+		defer cancel()
+		err := server.Shutdown(serverCtx)
 		if err != nil {
-			log.Fatal("Server failed to start:", err)
+			log.Fatal("Failed to shutdown server:", err)
 		}
+		CronCFG.StopJobs()
+		fmt.Println("Server and cron jobs stopped")
 	} else {
+		stop := make(chan os.Signal, 1)
+		signal.Notify(stop, os.Interrupt)
+
+		log.Println("Starting cron jobs")
+		go func() {
+			cronCtx := context.Background()
+			CronCFG.StartCronJobs(cronCtx, cfg)
+		}()
+
 		// HTTP mode (for simple local development)
-		log.Printf("Starting server in HTTP mode on port %s\n", port)
-		err := server.ListenAndServe()
-		if err != nil {
-			log.Fatal("Server failed to start:", err)
+		go func() {
+			log.Printf("Starting server in HTTP mode on port %s\n", port)
+			err := server.ListenAndServe()
+			if err != nil {
+				log.Fatal("Server failed to start:", err)
+			}
+		}()
+
+		<-stop
+		log.Println("Stopping server")
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := server.Shutdown(ctx); err != nil {
+			log.Fatal("Server shutdown failed:", err)
 		}
+		CronCFG.StopJobs()
+		fmt.Println("Server and cron jobs shutdown.")
 	}
 }
