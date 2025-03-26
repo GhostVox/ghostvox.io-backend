@@ -153,14 +153,17 @@ func CreatePollWithOptions(ctx context.Context, db *sql.DB, cfg *config.APIConfi
 	if err != nil {
 		return err
 	}
-	for _, option := range poll.Options {
-		_, err := qtx.CreateOption(ctx, database.CreateOptionParams{
-			PollID: pollRecord.ID,
-			Name:   option.Name,
-		})
-		if err != nil {
-			return err
-		}
+
+	names := make([]string, len(poll.Options))
+	for i, option := range poll.Options {
+		names[i] = option.Name
+	}
+	_, err = qtx.CreateOptions(ctx, database.CreateOptionsParams{
+		PollID:  pollRecord.ID,
+		Column2: names,
+	})
+	if err != nil {
+		return err
 	}
 
 	err = tx.Commit()

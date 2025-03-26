@@ -13,36 +13,23 @@ import (
 	"github.com/lib/pq"
 )
 
-const createOption = `-- name: CreateOption :one
-INSERT INTO options (name, poll_id)
-VALUES ($1, $2)
+const createOptions = `-- name: CreateOptions :execrows
+INSERT INTO options (poll_id, name)
+VALUES ($1, UNNEST($2::text[]))
 RETURNING id, name, created_at, updated_at, poll_id
 `
 
-type CreateOptionParams struct {
-	Name   string
-	PollID uuid.UUID
+type CreateOptionsParams struct {
+	PollID  uuid.UUID
+	Column2 []string
 }
 
-type CreateOptionRow struct {
-	ID        uuid.UUID
-	Name      string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	PollID    uuid.UUID
-}
-
-func (q *Queries) CreateOption(ctx context.Context, arg CreateOptionParams) (CreateOptionRow, error) {
-	row := q.db.QueryRowContext(ctx, createOption, arg.Name, arg.PollID)
-	var i CreateOptionRow
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.PollID,
-	)
-	return i, err
+func (q *Queries) CreateOptions(ctx context.Context, arg CreateOptionsParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, createOptions, arg.PollID, pq.Array(arg.Column2))
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const deleteOption = `-- name: DeleteOption :exec

@@ -8,9 +8,9 @@ SELECT id, name, count, created_at, updated_at, poll_id
 FROM options
 WHERE poll_id = $1;
 
--- name: CreateOption :one
-INSERT INTO options (name, poll_id)
-VALUES ($1, $2)
+-- name: CreateOptions :execrows
+INSERT INTO options (poll_id, name)
+VALUES ($1, UNNEST($2::text[]))
 RETURNING id, name, created_at, updated_at, poll_id;
 
 -- name: UpdateOption :one

@@ -143,7 +143,6 @@ func main() {
 	mux.HandleFunc("DELETE /api/v1/votes/{voteId}", mw.LoggingMiddleware(voteHandler.DeleteVote))
 
 	// Options Routes
-	mux.HandleFunc("POST /api/v1/polls/{pollId}/options", mw.LoggingMiddleware(optionHandler.CreateOptions))
 
 	mux.HandleFunc("GET /api/v1/polls/{pollId}/options/{optionId}", mw.LoggingMiddleware(optionHandler.GetOptionByID))
 
