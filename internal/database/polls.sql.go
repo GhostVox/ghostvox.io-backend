@@ -123,17 +123,18 @@ SELECT
 FROM
     polls join users on polls.user_id = users.id
 WHERE
-    polls.status = $1
+    polls.status = $1 and polls.category  like($2)
     Group by polls.id, users.id
     Order by polls.expires_at desc
 
-    limit $2 offset $3
+    limit $3 offset $4
 `
 
 type GetAllPollsByStatusListParams struct {
-	Status PollStatus
-	Limit  int32
-	Offset int32
+	Status   PollStatus
+	Category string
+	Limit    int32
+	Offset   int32
 }
 
 type GetAllPollsByStatusListRow struct {
@@ -150,7 +151,12 @@ type GetAllPollsByStatusListRow struct {
 }
 
 func (q *Queries) GetAllPollsByStatusList(ctx context.Context, arg GetAllPollsByStatusListParams) ([]GetAllPollsByStatusListRow, error) {
-	rows, err := q.db.QueryContext(ctx, getAllPollsByStatusList, arg.Status, arg.Limit, arg.Offset)
+	rows, err := q.db.QueryContext(ctx, getAllPollsByStatusList,
+		arg.Status,
+		arg.Category,
+		arg.Limit,
+		arg.Offset,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -303,14 +309,15 @@ polls.id as PollId,
 FROM
     polls join users on polls.user_id = users.id
 WHERE
-    user_id = $1
-    limit $2 offset $3
+    user_id = $1 and polls.category like($2)
+    limit $3 offset $4
 `
 
 type GetPollsByUserParams struct {
-	UserID uuid.UUID
-	Limit  int32
-	Offset int32
+	UserID   uuid.UUID
+	Category string
+	Limit    int32
+	Offset   int32
 }
 
 type GetPollsByUserRow struct {
@@ -327,7 +334,12 @@ type GetPollsByUserRow struct {
 }
 
 func (q *Queries) GetPollsByUser(ctx context.Context, arg GetPollsByUserParams) ([]GetPollsByUserRow, error) {
-	rows, err := q.db.QueryContext(ctx, getPollsByUser, arg.UserID, arg.Limit, arg.Offset)
+	rows, err := q.db.QueryContext(ctx, getPollsByUser,
+		arg.UserID,
+		arg.Category,
+		arg.Limit,
+		arg.Offset,
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -29,8 +29,8 @@ polls.id as PollId,
 FROM
     polls join users on polls.user_id = users.id
 WHERE
-    user_id = $1
-    limit $2 offset $3;
+    user_id = $1 and polls.category like($2)
+    limit $3 offset $4;
 
 -- name: GetPollsByStatus :many
 SELECT
@@ -94,9 +94,9 @@ SELECT
 FROM
     polls join users on polls.user_id = users.id
 WHERE
-    polls.status = $1
+    polls.status = $1 and polls.category  like($2)
     Group by polls.id, users.id
     Order by polls.expires_at desc
 
-    limit $2 offset $3
+    limit $3 offset $4
     ;

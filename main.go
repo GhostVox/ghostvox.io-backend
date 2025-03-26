@@ -102,7 +102,7 @@ func main() {
 	mux.HandleFunc("GET /api/v1/polls/finished", mw.LoggingMiddleware(pollHandler.GetAllFinishedPolls)) // in use
 	mux.HandleFunc("GET /api/v1/polls/active", mw.LoggingMiddleware(pollHandler.GetAllActivePolls))     // in use
 
-	mux.HandleFunc("GET /api/v1/polls/{userId}", mw.LoggingMiddleware(pollHandler.GetUsersPolls)) // in use
+	mux.HandleFunc("GET /api/v1/polls/by-user/{userId}", mw.LoggingMiddleware(pollHandler.GetUsersPolls)) // in use
 
 	mux.HandleFunc("GET /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.GetPoll))
 
@@ -144,9 +144,9 @@ func main() {
 
 	// Options Routes
 
-	mux.HandleFunc("GET /api/v1/polls/{pollId}/options/{optionId}", mw.LoggingMiddleware(optionHandler.GetOptionByID))
+	mux.HandleFunc("GET /api/v1/polls/poll/{pollId}/options", mw.LoggingMiddleware(optionHandler.GetOptionsByPollID))
 
-	mux.HandleFunc("GET /api/v1/polls/{pollId}/options", mw.LoggingMiddleware(optionHandler.GetOptionsByPollID))
+	mux.HandleFunc("GET /api/v1/polls/poll/{pollId}/options/{optionId}", mw.LoggingMiddleware(optionHandler.GetOptionByID))
 
 	mux.HandleFunc("PUT /api/v1/polls/{pollId}/options/{optionId}", mw.LoggingMiddleware(optionHandler.UpdateOption))
 
