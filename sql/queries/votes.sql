@@ -19,3 +19,9 @@ DELETE FROM votes WHERE poll_id = $1 RETURNING *;
 
 -- name: DeleteVotesByOptionID :exec
 DELETE FROM votes WHERE option_id = $1 RETURNING *;
+
+-- name: GetTotalVotesByPollIDs :many
+SELECT poll_id, COUNT(*) as count
+FROM votes
+WHERE poll_id = ANY($1::uuid[])
+GROUP BY poll_id;

@@ -5,3 +5,4 @@
 *.pem
 localhost+*.pem
 localhost+*-key.pem
+/logs

@@ -67,7 +67,47 @@ func (q *Queries) DeletePoll(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
-const getAllActivePollsList = `-- name: GetAllActivePollsList :many
+const getAllPolls = `-- name: GetAllPolls :many
+SELECT
+    id, user_id, title, description, category, created_at, updated_at, expires_at, status
+FROM
+    polls
+`
+
+func (q *Queries) GetAllPolls(ctx context.Context) ([]Poll, error) {
+	rows, err := q.db.QueryContext(ctx, getAllPolls)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Poll
+	for rows.Next() {
+		var i Poll
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Title,
+			&i.Description,
+			&i.Category,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ExpiresAt,
+			&i.Status,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getAllPollsByStatusList = `-- name: GetAllPollsByStatusList :many
 SELECT
     polls.id as PollId,
     polls.title as Title,
@@ -90,13 +130,13 @@ WHERE
     limit $2 offset $3
 `
 
-type GetAllActivePollsListParams struct {
+type GetAllPollsByStatusListParams struct {
 	Status PollStatus
 	Limit  int32
 	Offset int32
 }
 
-type GetAllActivePollsListRow struct {
+type GetAllPollsByStatusListRow struct {
 	Pollid           uuid.UUID
 	Title            string
 	Category         string
@@ -109,15 +149,15 @@ type GetAllActivePollsListRow struct {
 	Creatorlastname  sql.NullString
 }
 
-func (q *Queries) GetAllActivePollsList(ctx context.Context, arg GetAllActivePollsListParams) ([]GetAllActivePollsListRow, error) {
-	rows, err := q.db.QueryContext(ctx, getAllActivePollsList, arg.Status, arg.Limit, arg.Offset)
+func (q *Queries) GetAllPollsByStatusList(ctx context.Context, arg GetAllPollsByStatusListParams) ([]GetAllPollsByStatusListRow, error) {
+	rows, err := q.db.QueryContext(ctx, getAllPollsByStatusList, arg.Status, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetAllActivePollsListRow
+	var items []GetAllPollsByStatusListRow
 	for rows.Next() {
-		var i GetAllActivePollsListRow
+		var i GetAllPollsByStatusListRow
 		if err := rows.Scan(
 			&i.Pollid,
 			&i.Title,
@@ -143,15 +183,12 @@ func (q *Queries) GetAllActivePollsList(ctx context.Context, arg GetAllActivePol
 	return items, nil
 }
 
-const getAllPolls = `-- name: GetAllPolls :many
-SELECT
-    id, user_id, title, description, category, created_at, updated_at, expires_at, status
-FROM
-    polls
+const getExpiredPollsToUpdate = `-- name: GetExpiredPollsToUpdate :many
+Select id, user_id, title, description, category, created_at, updated_at, expires_at, status from polls where expires_at < now() and status = 'Active'
 `
 
-func (q *Queries) GetAllPolls(ctx context.Context) ([]Poll, error) {
-	rows, err := q.db.QueryContext(ctx, getAllPolls)
+func (q *Queries) GetExpiredPollsToUpdate(ctx context.Context) ([]Poll, error) {
+	rows, err := q.db.QueryContext(ctx, getExpiredPollsToUpdate)
 	if err != nil {
 		return nil, err
 	}
@@ -253,74 +290,62 @@ func (q *Queries) GetPollsByStatus(ctx context.Context, status PollStatus) ([]Po
 
 const getPollsByUser = `-- name: GetPollsByUser :many
 SELECT
-    id, user_id, title, description, category, created_at, updated_at, expires_at, status
+polls.id as PollId,
+    polls.title as Title,
+    polls.category as Category,
+    polls.description as Description,
+    polls.expires_at as ExpiresAt,
+    polls.status as Status,
+    polls.created_at as CreatedAt,
+    polls.updated_at as UpdatedAt,
+    users.first_name as CreatorFirstName,
+    users.last_name as CreatorLastName
 FROM
-    polls
+    polls join users on polls.user_id = users.id
 WHERE
     user_id = $1
+    limit $2 offset $3
 `
 
-func (q *Queries) GetPollsByUser(ctx context.Context, userID uuid.UUID) ([]Poll, error) {
-	rows, err := q.db.QueryContext(ctx, getPollsByUser, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Poll
-	for rows.Next() {
-		var i Poll
-		if err := rows.Scan(
-			&i.ID,
-			&i.UserID,
-			&i.Title,
-			&i.Description,
-			&i.Category,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ExpiresAt,
-			&i.Status,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+type GetPollsByUserParams struct {
+	UserID uuid.UUID
+	Limit  int32
+	Offset int32
 }
 
-const getPollsThatHaveExpired = `-- name: GetPollsThatHaveExpired :many
-SELECT
-    id, user_id, title, description, category, created_at, updated_at, expires_at, status
-FROM
-    polls
-WHERE
-    expires_at < now()
-`
+type GetPollsByUserRow struct {
+	Pollid           uuid.UUID
+	Title            string
+	Category         string
+	Description      string
+	Expiresat        time.Time
+	Status           PollStatus
+	Createdat        time.Time
+	Updatedat        time.Time
+	Creatorfirstname string
+	Creatorlastname  sql.NullString
+}
 
-func (q *Queries) GetPollsThatHaveExpired(ctx context.Context) ([]Poll, error) {
-	rows, err := q.db.QueryContext(ctx, getPollsThatHaveExpired)
+func (q *Queries) GetPollsByUser(ctx context.Context, arg GetPollsByUserParams) ([]GetPollsByUserRow, error) {
+	rows, err := q.db.QueryContext(ctx, getPollsByUser, arg.UserID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Poll
+	var items []GetPollsByUserRow
 	for rows.Next() {
-		var i Poll
+		var i GetPollsByUserRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.UserID,
+			&i.Pollid,
 			&i.Title,
-			&i.Description,
 			&i.Category,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ExpiresAt,
+			&i.Description,
+			&i.Expiresat,
 			&i.Status,
+			&i.Createdat,
+			&i.Updatedat,
+			&i.Creatorfirstname,
+			&i.Creatorlastname,
 		); err != nil {
 			return nil, err
 		}
@@ -370,6 +395,38 @@ func (q *Queries) UpdatePoll(ctx context.Context, arg UpdatePollParams) (Poll, e
 		arg.Status,
 		arg.ID,
 	)
+	var i Poll
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Title,
+		&i.Description,
+		&i.Category,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ExpiresAt,
+		&i.Status,
+	)
+	return i, err
+}
+
+const updatePollStatus = `-- name: UpdatePollStatus :one
+UPDATE
+    polls
+SET
+    status = $2,
+    updated_at = now()
+WHERE
+    id = $1 RETURNING id, user_id, title, description, category, created_at, updated_at, expires_at, status
+`
+
+type UpdatePollStatusParams struct {
+	ID     uuid.UUID
+	Status PollStatus
+}
+
+func (q *Queries) UpdatePollStatus(ctx context.Context, arg UpdatePollStatusParams) (Poll, error) {
+	row := q.db.QueryRowContext(ctx, updatePollStatus, arg.ID, arg.Status)
 	var i Poll
 	err := row.Scan(
 		&i.ID,

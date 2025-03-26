@@ -4,7 +4,7 @@ FROM options
 WHERE id = $1;
 
 -- name: GetOptionsByPollID :many
-SELECT id, name, created_at, updated_at, poll_id
+SELECT id, name, count, created_at, updated_at, poll_id
 FROM options
 WHERE poll_id = $1;
 
@@ -22,3 +22,7 @@ RETURNING id, name, created_at, updated_at, poll_id;
 -- name: DeleteOption :exec
 DELETE FROM options
 WHERE id = $1;
+
+-- name: GetOptionsByPollIDs :many
+SELECT * FROM options
+WHERE poll_id = ANY($1::uuid[]);

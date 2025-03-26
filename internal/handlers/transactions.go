@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/GhostVox/ghostvox.io-backend/internal/auth"
@@ -136,8 +137,11 @@ func CreatePollWithOptions(ctx context.Context, db *sql.DB, cfg *config.APIConfi
 	}
 	defer tx.Rollback()
 	qtx := cfg.Queries.WithTx(tx)
-
-	expiresAt := time.Now().Add(time.Duration(poll.ExpiresAt) * 24 * time.Hour) // write a reusable helper for this and test.
+	exp, err := strconv.Atoi(poll.ExpiresAt)
+	if err != nil {
+		return err
+	}
+	expiresAt := time.Now().Add(time.Duration(exp) * 24 * time.Hour) // write a reusable helper for this and test.
 	pollRecord, err := qtx.CreatePoll(ctx, database.CreatePollParams{
 		UserID:      poll.UserID,
 		Title:       poll.Title,

@@ -1,9 +1,12 @@
 package utils
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 )
@@ -26,6 +29,9 @@ func NewLogger(writer io.Writer) *Logger {
 
 // logs a job message to writer.
 func (l *Logger) LogJob(name, message string) (int, error) {
+	if l == nil {
+		return 0, fmt.Errorf("logger is nil")
+	}
 	day := time.Now().Format("2006-01-02 15:04:00")
 	l.mux.Lock()
 	defer l.mux.Unlock()
@@ -58,4 +64,32 @@ func (l *Logger) LogError(err error) (int, error) {
 	// Log to console
 	slog.Error("Error:", "Time", day, "Message", message)
 	return n, nil
+}
+
+// Writes buffer to file system
+func (l *Logger) WriteToFile(filename string) error {
+	l.mux.Lock()
+	defer l.mux.Unlock()
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	logDir := filepath.Join(wd, "logs")
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		return err
+	}
+	logFile := filepath.Join(logDir, filename)
+	file, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	_, err = file.Write(l.writer.(*bytes.Buffer).Bytes())
+	if err != nil {
+		slog.Error("Failed to write to log file", "Error", err)
+		return err
+	}
+	l.writer.(*bytes.Buffer).Reset()
+
+	return nil
 }

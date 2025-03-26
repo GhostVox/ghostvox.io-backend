@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 const createOption = `-- name: CreateOption :one
@@ -82,7 +83,7 @@ func (q *Queries) GetOptionByID(ctx context.Context, id uuid.UUID) (GetOptionByI
 }
 
 const getOptionsByPollID = `-- name: GetOptionsByPollID :many
-SELECT id, name, created_at, updated_at, poll_id
+SELECT id, name, count, created_at, updated_at, poll_id
 FROM options
 WHERE poll_id = $1
 `
@@ -90,6 +91,7 @@ WHERE poll_id = $1
 type GetOptionsByPollIDRow struct {
 	ID        uuid.UUID
 	Name      string
+	Count     int32
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	PollID    uuid.UUID
@@ -107,9 +109,45 @@ func (q *Queries) GetOptionsByPollID(ctx context.Context, pollID uuid.UUID) ([]G
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
+			&i.Count,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.PollID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getOptionsByPollIDs = `-- name: GetOptionsByPollIDs :many
+SELECT id, name, poll_id, count, created_at, updated_at FROM options
+WHERE poll_id = ANY($1::uuid[])
+`
+
+func (q *Queries) GetOptionsByPollIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]Option, error) {
+	rows, err := q.db.QueryContext(ctx, getOptionsByPollIDs, pq.Array(dollar_1))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Option
+	for rows.Next() {
+		var i Option
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.PollID,
+			&i.Count,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}

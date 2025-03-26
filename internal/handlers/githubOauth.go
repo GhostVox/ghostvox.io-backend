@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -190,11 +191,13 @@ func (gh *githubHandler) GithubCallbackHandler(w http.ResponseWriter, r *http.Re
 			http.Redirect(w, r, gh.cfg.AccessOrigin+"/sign-in?error="+errMsg, http.StatusTemporaryRedirect)
 			return
 		}
+		fmt.Println(existingUser)
 		userRecord = existingUser
 		refreshTokenString = refreshToken
 	}
 
 	// Generate Access Token
+	fmt.Println(userRecord.ID.String()) //delete
 	accessToken, err := auth.GenerateJWTAccessToken(userRecord.ID, userRecord.Role, userRecord.PictureUrl.String, userRecord.FirstName, userRecord.LastName.String, userRecord.Email, gh.cfg.GhostvoxSecretKey, gh.cfg.AccessTokenExp)
 	if err != nil {
 		errMsg := url.QueryEscape("Failed to generate access token")

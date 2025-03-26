@@ -16,11 +16,21 @@ WHERE
 
 -- name: GetPollsByUser :many
 SELECT
-    *
+polls.id as PollId,
+    polls.title as Title,
+    polls.category as Category,
+    polls.description as Description,
+    polls.expires_at as ExpiresAt,
+    polls.status as Status,
+    polls.created_at as CreatedAt,
+    polls.updated_at as UpdatedAt,
+    users.first_name as CreatorFirstName,
+    users.last_name as CreatorLastName
 FROM
-    polls
+    polls join users on polls.user_id = users.id
 WHERE
-    user_id = $1;
+    user_id = $1
+    limit $2 offset $3;
 
 -- name: GetPollsByStatus :many
 SELECT
@@ -56,8 +66,19 @@ DELETE FROM
 WHERE
     id = $1 RETURNING *;
 
+-- name: UpdatePollStatus :one
+UPDATE
+    polls
+SET
+    status = $2,
+    updated_at = now()
+WHERE
+    id = $1 RETURNING *;
 
--- name: GetAllActivePollsList :many
+-- name: GetExpiredPollsToUpdate :many
+Select * from polls where expires_at < now() and status = 'Active';
+
+-- name: GetAllPollsByStatusList :many
 SELECT
     polls.id as PollId,
     polls.title as Title,
@@ -79,11 +100,3 @@ WHERE
 
     limit $2 offset $3
     ;
-
--- name: GetPollsThatHaveExpired :many
-SELECT
-    *
-FROM
-    polls
-WHERE
-    expires_at < now();

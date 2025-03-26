@@ -59,9 +59,7 @@ func main() {
 		AccessOrigin:      envConfig.AccessOrigin,
 	}
 
-	CronCFG := &cron.CronConfig{
-		CheckForExpiredPolls: envConfig.CronCheckExpiredPolls,
-	}
+	CronCFG := cron.NewCronConfig(envConfig.CronCheckExpiredPolls)
 	// OAuth2 configuration
 	googleOAuthConfig := &oauth2.Config{
 		ClientID:     envConfig.GoogleClientID,
@@ -96,11 +94,15 @@ func main() {
 	wrappedMux := mw.CorsMiddleware(mux, envConfig.AccessOrigin)
 	//  start attaching route handlers to cfg.mux
 	// Redirects users to the root of the API and returns route endpoints for the API
-	mux.HandleFunc("/api/v1/", mw.LoggingMiddleware(rootHandler.HandleRoot))
+	mux.HandleFunc("/api/v1/", mw.LoggingMiddleware(rootHandler.HandleRoot)) // in use
 
 	// Polls route ✅
 	mux.HandleFunc("GET /api/v1/polls", mw.LoggingMiddleware(pollHandler.GetAllPolls))
-	mux.HandleFunc("GET /api/v1/polls/active", mw.LoggingMiddleware(pollHandler.GetAllActivePolls))
+
+	mux.HandleFunc("GET /api/v1/polls/finished", mw.LoggingMiddleware(pollHandler.GetAllFinishedPolls)) // in use
+	mux.HandleFunc("GET /api/v1/polls/active", mw.LoggingMiddleware(pollHandler.GetAllActivePolls))     // in use
+
+	mux.HandleFunc("GET /api/v1/polls/{userId}", mw.LoggingMiddleware(pollHandler.GetUsersPolls)) // in use
 
 	mux.HandleFunc("GET /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.GetPoll))
 
@@ -111,16 +113,16 @@ func main() {
 	mux.HandleFunc("DELETE /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.DeletePoll))
 	// End of poll routes
 	// OAuth routes
-	mux.HandleFunc("GET /api/v1/auth/google/login", mw.LoggingMiddleware(googleHandler.GoogleLoginHandler))
-	mux.HandleFunc("GET /api/v1/auth/google/callback", mw.LoggingMiddleware(googleHandler.GoogleCallbackHandler))
-	mux.HandleFunc("GET /api/v1/auth/github/login", mw.LoggingMiddleware(githubHandler.GithubLoginHandler))
-	mux.HandleFunc("GET /api/v1/auth/github/callback", mw.LoggingMiddleware(githubHandler.GithubCallbackHandler))
+	mux.HandleFunc("GET /api/v1/auth/google/login", mw.LoggingMiddleware(googleHandler.GoogleLoginHandler))       // in use
+	mux.HandleFunc("GET /api/v1/auth/google/callback", mw.LoggingMiddleware(googleHandler.GoogleCallbackHandler)) // in use
+	mux.HandleFunc("GET /api/v1/auth/github/login", mw.LoggingMiddleware(githubHandler.GithubLoginHandler))       // in use
+	mux.HandleFunc("GET /api/v1/auth/github/callback", mw.LoggingMiddleware(githubHandler.GithubCallbackHandler)) // in use
 	// end
 	//Auth routes
-	mux.HandleFunc("POST /api/v1/auth/login", mw.LoggingMiddleware(authHandler.Login))
-	mux.HandleFunc("POST /api/v1/auth/register", mw.LoggingMiddleware(authHandler.Register))
-	mux.HandleFunc("POST /api/v1/auth/logout", mw.LoggingMiddleware(authHandler.Logout))
-	mux.HandleFunc("POST /api/v1/auth/refresh", mw.LoggingMiddleware(authHandler.Refresh))
+	mux.HandleFunc("POST /api/v1/auth/login", mw.LoggingMiddleware(authHandler.Login))       // in use
+	mux.HandleFunc("POST /api/v1/auth/register", mw.LoggingMiddleware(authHandler.Register)) // in use
+	mux.HandleFunc("POST /api/v1/auth/logout", mw.LoggingMiddleware(authHandler.Logout))     // in use
+	mux.HandleFunc("POST /api/v1/auth/refresh", mw.LoggingMiddleware(authHandler.Refresh))   // in use
 
 	// Users Private route
 	mux.HandleFunc("GET /api/v1/admin/users/{userId}", mw.AdminRole(cfg, mw.LoggingMiddleware(adminHandler.GetUser)).ServeHTTP)

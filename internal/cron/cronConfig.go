@@ -3,6 +3,7 @@ package cron
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/GhostVox/ghostvox.io-backend/internal/config"
@@ -11,27 +12,30 @@ import (
 )
 
 type CronConfig struct {
-	CheckForExpiredPolls string
 	Jobs                 map[string]cron.EntryID
 	Scheduler            *cron.Cron
 	logger               *utils.Logger
+	CheckForExpiredPolls string
 }
 
 func NewCronConfig(checkForExpiredPolls string) *CronConfig {
 	buffer := bytes.NewBuffer([]byte{})
 
 	return &CronConfig{
-		CheckForExpiredPolls: checkForExpiredPolls,
-		Jobs:                 make(map[string]cron.EntryID),
+		Jobs: make(map[string]cron.EntryID),
 		Scheduler: cron.New(cron.WithChain(
 			cron.Recover(cron.DefaultLogger),
 			cron.SkipIfStillRunning(cron.DefaultLogger),
 		)),
-		logger: utils.NewLogger(buffer),
+		logger:               utils.NewLogger(buffer),
+		CheckForExpiredPolls: checkForExpiredPolls,
 	}
 }
 
 func (c *CronConfig) StartCronJobs(ctx context.Context, cfg *config.APIConfig) {
+	if c.logger == nil {
+		fmt.Println("Logger is nil")
+	}
 	if c.Scheduler == nil {
 		c.Scheduler = cron.New()
 	}

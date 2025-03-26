@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 const createVote = `-- name: CreateVote :one
@@ -71,6 +72,41 @@ func (q *Queries) GetTotalVotesByPollID(ctx context.Context, pollID uuid.UUID) (
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const getTotalVotesByPollIDs = `-- name: GetTotalVotesByPollIDs :many
+SELECT poll_id, COUNT(*) as count
+FROM votes
+WHERE poll_id = ANY($1::uuid[])
+GROUP BY poll_id
+`
+
+type GetTotalVotesByPollIDsRow struct {
+	PollID uuid.UUID
+	Count  int64
+}
+
+func (q *Queries) GetTotalVotesByPollIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]GetTotalVotesByPollIDsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getTotalVotesByPollIDs, pq.Array(dollar_1))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetTotalVotesByPollIDsRow
+	for rows.Next() {
+		var i GetTotalVotesByPollIDsRow
+		if err := rows.Scan(&i.PollID, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getVotesByOptionID = `-- name: GetVotesByOptionID :many
