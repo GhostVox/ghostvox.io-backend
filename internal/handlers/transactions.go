@@ -130,8 +130,8 @@ func deleteAndReplaceRefreshToken(ctx context.Context, cfg *config.APIConfig, us
 	return refreshRecord.Token, nil
 }
 
-func CreatePollWithOptions(ctx context.Context, db *sql.DB, cfg *config.APIConfig, poll poll) (err error) {
-	tx, err := db.BeginTx(ctx, nil)
+func CreatePollWithOptions(ctx context.Context, cfg *config.APIConfig, poll poll) (err error) {
+	tx, err := cfg.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -162,6 +162,36 @@ func CreatePollWithOptions(ctx context.Context, db *sql.DB, cfg *config.APIConfi
 		PollID:  pollRecord.ID,
 		Column2: names,
 	})
+	if err != nil {
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func CreateVoteAndUpdateOptionCount(ctx context.Context, cfg *config.APIConfig, userID, optionID, pollID uuid.UUID) (err error) {
+	tx, err := cfg.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	qtx := cfg.Queries.WithTx(tx)
+
+	_, err = qtx.CreateVote(ctx, database.CreateVoteParams{
+		UserID:   userID,
+		PollID:   pollID,
+		OptionID: optionID,
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = qtx.UpdateOptionCount(ctx, optionID)
 	if err != nil {
 		return err
 	}

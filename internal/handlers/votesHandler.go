@@ -1,38 +1,41 @@
 package handlers
 
 import (
-	"database/sql"
 	"encoding/json"
-	"errors"
 	"net/http"
 
-	"github.com/GhostVox/ghostvox.io-backend/internal/database"
+	"github.com/GhostVox/ghostvox.io-backend/internal/config"
 	"github.com/google/uuid"
 )
 
 type Vote struct {
-	PollId   string `json:"poll_id"`
-	OptionId string `json:"option_id"`
-	UserId   string `json:"user_id"`
+	PollId   string       `json:"poll_id"`
+	OptionId string       `json:"option_id"`
+	UserId   string       `json:"user_id"`
+	Poll     PollResponse `json:"poll"`
 }
 
 type voteHandler struct {
-	db *database.Queries
+	cfg *config.APIConfig
 }
 
-func NewVoteHandler(db *database.Queries) *voteHandler {
+func NewVoteHandler(db *config.APIConfig) *voteHandler {
 	return &voteHandler{
-		db: db,
+		cfg: db,
 	}
 }
 
-func (vh *voteHandler) CreateVote(w http.ResponseWriter, r *http.Request) {
+func (vh *voteHandler) VoteOnPoll(w http.ResponseWriter, r *http.Request) {
+
+	// get the poll ID
 	pollId := r.PathValue("pollId")
 	pollUUID, err := uuid.Parse(pollId)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid poll ID format", err)
 		return
 	}
+
+	// parse request body into a Vote struct
 	var vote Vote
 	err = json.NewDecoder(r.Body).Decode(&vote)
 	if err != nil {
@@ -52,43 +55,13 @@ func (vh *voteHandler) CreateVote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	voteRecord, err := vh.db.CreateVote(r.Context(), database.CreateVoteParams{
-		PollID:   pollUUID,
-		OptionID: optionUUID,
-		UserID:   userUUID,
-	})
+	err = CreateVoteAndUpdateOptionCount(r.Context(), vh.cfg, userUUID, optionUUID, pollUUID)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "Poll or option not found", err)
-			return
-		}
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Failed to create vote", err)
 		return
 	}
+	vote.Poll.Votes++
 
-	respondWithJSON(w, http.StatusCreated, voteRecord)
-
-}
-
-func (vh *voteHandler) DeleteVote(w http.ResponseWriter, r *http.Request) {
-
-	voteId := r.PathValue("voteId")
-	voteUUID, err := uuid.Parse(voteId)
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid vote ID format", err)
-		return
-	}
-
-	err = vh.db.DeleteVoteByID(r.Context(), voteUUID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "Vote not found", err)
-			return
-		}
-		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Failed to delete vote", err)
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
+	respondWithJSON(w, http.StatusCreated, vote.Poll)
 
 }

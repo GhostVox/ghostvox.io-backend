@@ -35,6 +35,7 @@ type GetTotalCommentsByPollIDsRow struct {
 	Count  int64
 }
 
+// used by pollhandler.processPollData
 func (q *Queries) GetTotalCommentsByPollIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]GetTotalCommentsByPollIDsRow, error) {
 	rows, err := q.db.QueryContext(ctx, getTotalCommentsByPollIDs, pq.Array(dollar_1))
 	if err != nil {

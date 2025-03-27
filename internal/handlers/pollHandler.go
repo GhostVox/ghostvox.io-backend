@@ -67,34 +67,6 @@ func (h *pollHandler) GetAllPolls(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func (h *pollHandler) GetPoll(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("pollId")
-	if id == "" {
-		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "poll id missing from pathvalue", errors.New("pollId is required"))
-		return
-	}
-
-	pollUUID, err := uuid.Parse(id)
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid poll id", err)
-		return
-	}
-
-	poll, err := h.cfg.Queries.GetPoll(r.Context(), pollUUID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "No poll found", err)
-			return
-		} else {
-			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
-			return
-		}
-	}
-
-	respondWithJSON(w, http.StatusOK, poll)
-	return
-}
-
 func (h *pollHandler) CreatePoll(w http.ResponseWriter, r *http.Request) {
 	newPoll := poll{}
 	defer r.Body.Close()
@@ -103,7 +75,7 @@ func (h *pollHandler) CreatePoll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := CreatePollWithOptions(r.Context(), h.cfg.DB, h.cfg, newPoll)
+	err := CreatePollWithOptions(r.Context(), h.cfg, newPoll)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
 		return

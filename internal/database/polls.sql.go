@@ -31,6 +31,7 @@ type CreatePollParams struct {
 	Status      PollStatus
 }
 
+// used by transactions createPollWithOptions
 func (q *Queries) CreatePoll(ctx context.Context, arg CreatePollParams) (Poll, error) {
 	row := q.db.QueryRowContext(ctx, createPoll,
 		arg.UserID,
@@ -74,6 +75,7 @@ FROM
     polls
 `
 
+// not used yet
 func (q *Queries) GetAllPolls(ctx context.Context) ([]Poll, error) {
 	rows, err := q.db.QueryContext(ctx, getAllPolls)
 	if err != nil {
@@ -150,6 +152,7 @@ type GetAllPollsByStatusListRow struct {
 	Creatorlastname  sql.NullString
 }
 
+// used by pollhandler.GetAllfinishedpolls and pollhandler.GetAllActivePolls
 func (q *Queries) GetAllPollsByStatusList(ctx context.Context, arg GetAllPollsByStatusListParams) ([]GetAllPollsByStatusListRow, error) {
 	rows, err := q.db.QueryContext(ctx, getAllPollsByStatusList,
 		arg.Status,
@@ -193,76 +196,9 @@ const getExpiredPollsToUpdate = `-- name: GetExpiredPollsToUpdate :many
 Select id, user_id, title, description, category, created_at, updated_at, expires_at, status from polls where expires_at < now() and status = 'Active'
 `
 
+// used by cron
 func (q *Queries) GetExpiredPollsToUpdate(ctx context.Context) ([]Poll, error) {
 	rows, err := q.db.QueryContext(ctx, getExpiredPollsToUpdate)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Poll
-	for rows.Next() {
-		var i Poll
-		if err := rows.Scan(
-			&i.ID,
-			&i.UserID,
-			&i.Title,
-			&i.Description,
-			&i.Category,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ExpiresAt,
-			&i.Status,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getPoll = `-- name: GetPoll :one
-SELECT
-    id, user_id, title, description, category, created_at, updated_at, expires_at, status
-FROM
-    polls
-WHERE
-    id = $1
-`
-
-func (q *Queries) GetPoll(ctx context.Context, id uuid.UUID) (Poll, error) {
-	row := q.db.QueryRowContext(ctx, getPoll, id)
-	var i Poll
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.Title,
-		&i.Description,
-		&i.Category,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.ExpiresAt,
-		&i.Status,
-	)
-	return i, err
-}
-
-const getPollsByStatus = `-- name: GetPollsByStatus :many
-SELECT
-    id, user_id, title, description, category, created_at, updated_at, expires_at, status
-FROM
-    polls
-WHERE
-    status = $1
-`
-
-func (q *Queries) GetPollsByStatus(ctx context.Context, status PollStatus) ([]Poll, error) {
-	rows, err := q.db.QueryContext(ctx, getPollsByStatus, status)
 	if err != nil {
 		return nil, err
 	}
@@ -333,6 +269,7 @@ type GetPollsByUserRow struct {
 	Creatorlastname  sql.NullString
 }
 
+// used by pollhandler.GetPollsByUser
 func (q *Queries) GetPollsByUser(ctx context.Context, arg GetPollsByUserParams) ([]GetPollsByUserRow, error) {
 	rows, err := q.db.QueryContext(ctx, getPollsByUser,
 		arg.UserID,
@@ -437,6 +374,7 @@ type UpdatePollStatusParams struct {
 	Status PollStatus
 }
 
+// used by cron
 func (q *Queries) UpdatePollStatus(ctx context.Context, arg UpdatePollStatusParams) (Poll, error) {
 	row := q.db.QueryRowContext(ctx, updatePollStatus, arg.ID, arg.Status)
 	var i Poll

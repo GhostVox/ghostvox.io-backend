@@ -119,6 +119,7 @@ SELECT id, name, poll_id, count, created_at, updated_at FROM options
 WHERE poll_id = ANY($1::uuid[])
 `
 
+// used by pollhandler.processPollData
 func (q *Queries) GetOptionsByPollIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]Option, error) {
 	rows, err := q.db.QueryContext(ctx, getOptionsByPollIDs, pq.Array(dollar_1))
 	if err != nil {
@@ -149,19 +150,14 @@ func (q *Queries) GetOptionsByPollIDs(ctx context.Context, dollar_1 []uuid.UUID)
 	return items, nil
 }
 
-const updateOption = `-- name: UpdateOption :one
+const updateOptionCount = `-- name: UpdateOptionCount :one
 UPDATE options
-SET name = coalesce($2, name), updated_at = now()
+SET count = count + 1, updated_at = now()
 WHERE id = $1
 RETURNING id, name, created_at, updated_at, poll_id
 `
 
-type UpdateOptionParams struct {
-	ID   uuid.UUID
-	Name string
-}
-
-type UpdateOptionRow struct {
+type UpdateOptionCountRow struct {
 	ID        uuid.UUID
 	Name      string
 	CreatedAt time.Time
@@ -169,9 +165,9 @@ type UpdateOptionRow struct {
 	PollID    uuid.UUID
 }
 
-func (q *Queries) UpdateOption(ctx context.Context, arg UpdateOptionParams) (UpdateOptionRow, error) {
-	row := q.db.QueryRowContext(ctx, updateOption, arg.ID, arg.Name)
-	var i UpdateOptionRow
+func (q *Queries) UpdateOptionCount(ctx context.Context, id uuid.UUID) (UpdateOptionCountRow, error) {
+	row := q.db.QueryRowContext(ctx, updateOptionCount, id)
+	var i UpdateOptionCountRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,

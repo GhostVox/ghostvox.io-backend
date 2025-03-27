@@ -36,33 +36,6 @@ func (q *Queries) CreateVote(ctx context.Context, arg CreateVoteParams) (Vote, e
 	return i, err
 }
 
-const deleteVoteByID = `-- name: DeleteVoteByID :exec
-DELETE FROM votes WHERE id = $1 RETURNING id, poll_id, option_id, created_at, user_id
-`
-
-func (q *Queries) DeleteVoteByID(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteVoteByID, id)
-	return err
-}
-
-const deleteVotesByOptionID = `-- name: DeleteVotesByOptionID :exec
-DELETE FROM votes WHERE option_id = $1 RETURNING id, poll_id, option_id, created_at, user_id
-`
-
-func (q *Queries) DeleteVotesByOptionID(ctx context.Context, optionID uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteVotesByOptionID, optionID)
-	return err
-}
-
-const deleteVotesByPollID = `-- name: DeleteVotesByPollID :exec
-DELETE FROM votes WHERE poll_id = $1 RETURNING id, poll_id, option_id, created_at, user_id
-`
-
-func (q *Queries) DeleteVotesByPollID(ctx context.Context, pollID uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteVotesByPollID, pollID)
-	return err
-}
-
 const getTotalVotesByPollID = `-- name: GetTotalVotesByPollID :one
 SELECT count(*) FROM votes WHERE poll_id = $1
 `
@@ -86,6 +59,7 @@ type GetTotalVotesByPollIDsRow struct {
 	Count  int64
 }
 
+// used by pollhandler.processPollData
 func (q *Queries) GetTotalVotesByPollIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]GetTotalVotesByPollIDsRow, error) {
 	rows, err := q.db.QueryContext(ctx, getTotalVotesByPollIDs, pq.Array(dollar_1))
 	if err != nil {

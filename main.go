@@ -59,7 +59,9 @@ func main() {
 		AccessOrigin:      envConfig.AccessOrigin,
 	}
 
+	//Configure Cron
 	CronCFG := cron.NewCronConfig(envConfig.CronCheckExpiredPolls)
+
 	// OAuth2 configuration
 	googleOAuthConfig := &oauth2.Config{
 		ClientID:     envConfig.GoogleClientID,
@@ -81,7 +83,7 @@ func main() {
 	// Initialize handlers
 	rootHandler := handlers.NewRootHandler(cfg)
 	pollHandler := handlers.NewPollHandler(cfg)
-	voteHandler := handlers.NewVoteHandler(cfg.Queries)
+	voteHandler := handlers.NewVoteHandler(cfg)
 	optionHandler := handlers.NewOptionHandler(cfg)
 	userHandler := handlers.NewUserHandler(cfg)
 	authHandler := handlers.NewAuthHandler(cfg)
@@ -104,11 +106,11 @@ func main() {
 
 	mux.HandleFunc("GET /api/v1/polls/by-user/{userId}", mw.LoggingMiddleware(pollHandler.GetUsersPolls)) // in use
 
-	mux.HandleFunc("GET /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.GetPoll))
-
 	mux.HandleFunc("PUT /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.UpdatePoll))
 
 	mux.HandleFunc("POST /api/v1/polls", mw.LoggingMiddleware(pollHandler.CreatePoll))
+
+	mux.HandleFunc("POST /api/v1/polls/{pollId}/vote", mw.LoggingMiddleware(voteHandler.VoteOnPoll))
 
 	mux.HandleFunc("DELETE /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.DeletePoll))
 	// End of poll routes
@@ -136,19 +138,7 @@ func main() {
 	mux.HandleFunc("DELETE /api/v1/users/{userId}", mw.LoggingMiddleware(userHandler.DeleteUser))
 	// End of users routes
 
-	// Votes Routes
-
-	mux.HandleFunc("POST /api/v1/polls/{pollId}/votes", mw.LoggingMiddleware(voteHandler.CreateVote))
-
-	mux.HandleFunc("DELETE /api/v1/votes/{voteId}", mw.LoggingMiddleware(voteHandler.DeleteVote))
-
 	// Options Routes
-
-	mux.HandleFunc("GET /api/v1/polls/poll/{pollId}/options", mw.LoggingMiddleware(optionHandler.GetOptionsByPollID))
-
-	mux.HandleFunc("GET /api/v1/polls/poll/{pollId}/options/{optionId}", mw.LoggingMiddleware(optionHandler.GetOptionByID))
-
-	mux.HandleFunc("PUT /api/v1/polls/{pollId}/options/{optionId}", mw.LoggingMiddleware(optionHandler.UpdateOption))
 
 	mux.HandleFunc("DELETE /api/v1/polls/{pollId}/options/{optionId}", mw.LoggingMiddleware(optionHandler.DeleteOption))
 	// End of options routes
