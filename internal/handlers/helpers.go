@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/GhostVox/ghostvox.io-backend/internal/database"
+	"github.com/google/uuid"
 )
 
 func NullStringHelper(value interface{}) sql.NullString {
@@ -43,16 +44,18 @@ func getLimitAndOffset(r *http.Request) (limit, offset int, err error) {
 	return limit, offset, nil
 }
 
-func getWinner(options []database.Option) string {
-	currentWinner := ""
+func getWinner(options []database.Option) uuid.UUID {
+	currentWinner := uuid.Nil
 	currentCount := int32(0)
 	for _, option := range options {
 		if option.Count > currentCount {
-			currentWinner = option.Name
+			currentWinner = option.ID
 			currentCount = option.Count
+			fmt.Println(option.Count)
+			continue
 		}
 		if option.Count == currentCount {
-			currentWinner = "draw"
+			currentWinner = uuid.Nil
 		}
 	}
 	return currentWinner

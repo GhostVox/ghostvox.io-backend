@@ -13,6 +13,7 @@ WHERE
     id = $1;
 
 -- name: GetUserByEmail :one
+-- used by auth handler
 SELECT
     *
 FROM
@@ -37,6 +38,7 @@ WHERE id = $8 RETURNING *;
 
 
 -- name: CreateUser :one
+-- used by auth handler
 INSERT INTO
     users (email, first_name, last_name, hashed_password,provider,provider_id,role,picture_url)
 VALUES
@@ -52,9 +54,18 @@ WHERE
     id = $1;
 
 -- name: GetUserByProviderAndProviderId :one
+-- used by auth handler
 SELECT
     *
 FROM
     users
 WHERE
     provider = $1 AND provider_id = $2;
+
+-- name: GetUserStats :one
+SELECT
+    (SELECT COUNT(*) FROM polls WHERE polls.user_id = $1) as total_polls,
+    (SELECT COUNT(*) FROM comments WHERE comments.poll_id IN (SELECT id FROM polls WHERE polls.user_id = $1)) as total_comments,
+    (SELECT COUNT(*) FROM votes WHERE votes.poll_id IN (SELECT id FROM polls WHERE polls.user_id = $1)) as total_votes
+FROM users
+WHERE users.id = $1;

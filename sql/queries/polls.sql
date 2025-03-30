@@ -67,6 +67,24 @@ WHERE
     limit $3 offset $4
     ;
 
+-- name: GetPollByID :one
+SELECT
+    polls.id as PollId,
+    polls.title as Title,
+    polls.category as Category,
+    polls.description as Description,
+    polls.expires_at as ExpiresAt,
+    polls.status as Status,
+    polls.created_at as CreatedAt,
+    polls.updated_at as UpdatedAt,
+    users.first_name as CreatorFirstName,
+    users.last_name as CreatorLastName
+
+FROM
+    polls join users on polls.user_id = users.id
+WHERE
+    polls.id = $1;
+
 --not used yet
 -- name: GetAllPolls :many
 SELECT

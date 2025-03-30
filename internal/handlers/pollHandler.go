@@ -10,13 +10,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/GhostVox/ghostvox.io-backend/internal/auth"
 	"github.com/GhostVox/ghostvox.io-backend/internal/config"
 	"github.com/GhostVox/ghostvox.io-backend/internal/database"
 	"github.com/google/uuid"
 )
 
 type poll struct {
-	UserID      uuid.UUID      `json:"userId"`
 	Title       string         `json:"title"`
 	Description string         `json:"description"`
 	Category    string         `json:"category"`
@@ -38,6 +38,7 @@ type PollResponse struct {
 	Comments    int64             `json:"comments"`
 	EndedAt     time.Time         `json:"endedAt"`
 	Winner      string            `json:"winner"`
+	UserVote    *database.Vote    `json:"userVote,omitempty"`
 }
 
 type pollHandler struct {
@@ -67,7 +68,124 @@ func (h *pollHandler) GetAllPolls(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+func (h *pollHandler) GetPollByID(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("pollId")
+	if id == "" {
+		respondWithError(w, http.StatusBadRequest, "pollId", "Missing poll ID", nil)
+		return
+	}
+	pollID, err := uuid.Parse(id)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "pollId", "Invalid poll ID", err)
+		return
+	}
+	poll, err := h.cfg.Queries.GetPollByID(r.Context(), pollID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "Poll not found", err)
+			return
+		} else {
+			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
+			return
+		}
+	}
+
+	cookie, err := r.Cookie("accessToken")
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "accessToken", "Missing access token", err)
+		return
+	}
+	claims, err := auth.ValidateJWT(cookie.Value, h.cfg.GhostvoxSecretKey)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), "Invalid access token", err)
+		return
+	}
+
+	userUUID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "userUUID", "Invalid user UUID", err)
+		return
+	}
+
+	options, err := h.cfg.Queries.GetOptionsByPollID(r.Context(), pollID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "Poll options not found", err)
+			return
+		} else {
+			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
+			return
+		}
+	}
+
+	totalVotesByPollID, err := h.cfg.Queries.GetTotalVotesByPollID(r.Context(), pollID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "Votes not found", err)
+			return
+		} else {
+			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
+			return
+		}
+	}
+
+	totalCommentsByPollID, err := h.cfg.Queries.GetTotalComments(r.Context(), pollID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "Comments not found", err)
+			return
+		} else {
+			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
+			return
+		}
+	}
+
+	userVote, err := h.cfg.Queries.GetUserVoteByPollID(r.Context(), database.GetUserVoteByPollIDParams{
+		PollID: pollID,
+		UserID: userUUID,
+	})
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
+		return
+	}
+
+	pollResponse := PollResponse{
+		ID:          poll.Pollid,
+		Title:       poll.Title,
+		Creator:     poll.Creatorfirstname + " " + poll.Creatorlastname.String,
+		Description: poll.Description,
+		Status:      string(poll.Status),
+		Category:    poll.Category,
+		Options:     options,
+		DaysLeft:    int64(poll.Expiresat.Sub(time.Now()).Hours() / 24),
+		Votes:       totalVotesByPollID,
+		Comments:    totalCommentsByPollID,
+		EndedAt:     poll.Expiresat,
+		UserVote:    &userVote,
+	}
+
+	respondWithJSON(w, http.StatusOK, pollResponse)
+	return
+}
+
 func (h *pollHandler) CreatePoll(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("accessToken")
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "accessToken", "Missing access token", err)
+		return
+	}
+
+	claims, err := auth.ValidateJWT(cookie.Value, h.cfg.GhostvoxSecretKey)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "accessToken", "Invalid access token", err)
+		return
+	}
+	userUUID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "accessToken", "Invalid access token", err)
+		return
+	}
+
 	newPoll := poll{}
 	defer r.Body.Close()
 	if err := json.NewDecoder(r.Body).Decode(&newPoll); err != nil {
@@ -75,7 +193,7 @@ func (h *pollHandler) CreatePoll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := CreatePollWithOptions(r.Context(), h.cfg, newPoll)
+	err = CreatePollWithOptions(r.Context(), h.cfg, newPoll, userUUID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
 		return
@@ -89,9 +207,27 @@ func (h *pollHandler) CreatePoll(w http.ResponseWriter, r *http.Request) {
 
 func (h *pollHandler) UpdatePoll(w http.ResponseWriter, r *http.Request) {
 	pollId := r.PathValue("pollId")
+
+	token, err := r.Cookie("accessToken")
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "accessToken", "Invalid access token", err)
+		return
+	}
+
+	claims, err := auth.ValidateJWT(token.Value, h.cfg.GhostvoxSecretKey)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "accessToken", "Invalid access token", err)
+		return
+	}
+	userUUID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "accessToken", "Invalid access token", err)
+		return
+	}
+
 	newPoll := poll{}
 	defer r.Body.Close()
-	err := json.NewDecoder(r.Body).Decode(&newPoll)
+	err = json.NewDecoder(r.Body).Decode(&newPoll)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
 		return
@@ -102,6 +238,7 @@ func (h *pollHandler) UpdatePoll(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid poll id in pathvalue", err)
 		return
 	}
+
 	exp, err := strconv.Atoi(newPoll.ExpiresAt)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid expiresAt", "Invalid expiresAt", err)
@@ -110,7 +247,7 @@ func (h *pollHandler) UpdatePoll(w http.ResponseWriter, r *http.Request) {
 	expiresAt := time.Now().Add(time.Duration(exp))
 	pollRecord, err := h.cfg.Queries.UpdatePoll(r.Context(), database.UpdatePollParams{
 		ID:          pollUUID,
-		UserID:      newPoll.UserID,
+		UserID:      userUUID,
 		Description: newPoll.Description,
 		Title:       newPoll.Title,
 		ExpiresAt:   expiresAt,
@@ -201,7 +338,7 @@ func (h *pollHandler) processPollData(ctx context.Context, pollIDs []uuid.UUID) 
 }
 
 // Process status-based polls
-func (h *pollHandler) processStatusPolls(ctx context.Context, polls []database.GetAllPollsByStatusListRow, w http.ResponseWriter) {
+func (h *pollHandler) processStatusPolls(ctx context.Context, polls []database.GetAllPollsByStatusListRow, w http.ResponseWriter, userID uuid.UUID) {
 	if len(polls) == 0 {
 		respondWithJSON(w, http.StatusOK, []PollResponse{})
 		return
@@ -226,6 +363,19 @@ func (h *pollHandler) processStatusPolls(ctx context.Context, polls []database.G
 		pollID := poll.Pollid
 		options := optionsByPollID[pollID]
 
+		userVoted := true
+		voteRecord, err := h.cfg.Queries.GetUserVoteByPollID(ctx, database.GetUserVoteByPollIDParams{
+			PollID: pollID,
+			UserID: userID,
+		})
+		if err != nil {
+			if err == sql.ErrNoRows {
+				userVoted = false
+			} else {
+				respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
+				return
+			}
+		}
 		pollResponse := PollResponse{
 			ID:          pollID,
 			Title:       poll.Title,
@@ -240,8 +390,12 @@ func (h *pollHandler) processStatusPolls(ctx context.Context, polls []database.G
 			EndedAt:     poll.Expiresat,
 		}
 
+		if userVoted {
+			pollResponse.UserVote = &voteRecord
+		}
+
 		if poll.Status == database.PollStatusArchived && len(options) > 0 {
-			pollResponse.Winner = getWinner(options)
+			pollResponse.Winner = getWinner(options).String()
 		}
 
 		responsePolls = append(responsePolls, pollResponse)
@@ -251,7 +405,7 @@ func (h *pollHandler) processStatusPolls(ctx context.Context, polls []database.G
 }
 
 // Process user-based polls
-func (h *pollHandler) processUserPolls(ctx context.Context, polls []database.GetPollsByUserRow, w http.ResponseWriter) {
+func (h *pollHandler) processUserPolls(ctx context.Context, polls []database.GetPollsByUserRow, w http.ResponseWriter, userUUID uuid.UUID) {
 	if len(polls) == 0 {
 		respondWithJSON(w, http.StatusOK, []PollResponse{})
 		return
@@ -276,6 +430,19 @@ func (h *pollHandler) processUserPolls(ctx context.Context, polls []database.Get
 		pollID := poll.Pollid
 		options := optionsByPollID[pollID]
 
+		userVoted := true
+		voteRecord, err := h.cfg.Queries.GetUserVoteByPollID(ctx, database.GetUserVoteByPollIDParams{
+			PollID: pollID,
+			UserID: userUUID,
+		})
+		if err != nil {
+			if err == sql.ErrNoRows {
+				userVoted = false
+			} else {
+				respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
+				return
+			}
+		}
 		pollResponse := PollResponse{
 			ID:          pollID,
 			Title:       poll.Title,
@@ -290,8 +457,12 @@ func (h *pollHandler) processUserPolls(ctx context.Context, polls []database.Get
 			EndedAt:     poll.Expiresat,
 		}
 
+		if userVoted {
+			pollResponse.UserVote = &voteRecord
+		}
+
 		if poll.Status == database.PollStatusArchived && len(options) > 0 {
-			pollResponse.Winner = getWinner(options)
+			pollResponse.Winner = getWinner(options).String()
 		}
 
 		responsePolls = append(responsePolls, pollResponse)
@@ -312,6 +483,23 @@ func (h *pollHandler) GetAllActivePolls(w http.ResponseWriter, r *http.Request) 
 		category = "%%"
 	}
 
+	cookie, err := r.Cookie("accessToken")
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid cookie", err)
+		return
+	}
+	claims, err := auth.ValidateJWT(cookie.Value, h.cfg.GhostvoxSecretKey)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid cookie", err)
+		return
+	}
+
+	userUUID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid user UUID", err)
+		return
+	}
+
 	polls, err := h.cfg.Queries.GetAllPollsByStatusList(r.Context(), database.GetAllPollsByStatusListParams{
 		Limit:    int32(limit),
 		Offset:   int32(offset),
@@ -328,10 +516,11 @@ func (h *pollHandler) GetAllActivePolls(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	h.processStatusPolls(r.Context(), polls, w)
+	h.processStatusPolls(r.Context(), polls, w, userUUID)
 }
 
 func (h *pollHandler) GetAllFinishedPolls(w http.ResponseWriter, r *http.Request) {
+
 	limit, offset, err := getLimitAndOffset(r)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid limit or offset", err)
@@ -341,6 +530,23 @@ func (h *pollHandler) GetAllFinishedPolls(w http.ResponseWriter, r *http.Request
 	category := r.URL.Query().Get("category")
 	if category == "" {
 		category = "%%"
+	}
+
+	cookie, err := r.Cookie("accessToken")
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid cookie", err)
+		return
+	}
+	claims, err := auth.ValidateJWT(cookie.Value, h.cfg.GhostvoxSecretKey)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid cookie", err)
+		return
+	}
+
+	userUUID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid user UUID", err)
+		return
 	}
 
 	polls, err := h.cfg.Queries.GetAllPollsByStatusList(r.Context(), database.GetAllPollsByStatusListParams{
@@ -358,7 +564,7 @@ func (h *pollHandler) GetAllFinishedPolls(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	h.processStatusPolls(r.Context(), polls, w)
+	h.processStatusPolls(r.Context(), polls, w, userUUID)
 }
 
 func (h *pollHandler) GetUsersPolls(w http.ResponseWriter, r *http.Request) {
@@ -380,6 +586,23 @@ func (h *pollHandler) GetUsersPolls(w http.ResponseWriter, r *http.Request) {
 		category = "%%"
 	}
 
+	cookie, err := r.Cookie("accessToken")
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid cookie", err)
+		return
+	}
+	claims, err := auth.ValidateJWT(cookie.Value, h.cfg.GhostvoxSecretKey)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid cookie", err)
+		return
+	}
+
+	userUUID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid user UUID", err)
+		return
+	}
+
 	userPolls, err := h.cfg.Queries.GetPollsByUser(r.Context(), database.GetPollsByUserParams{
 		UserID:   userId,
 		Limit:    int32(limit),
@@ -395,5 +618,5 @@ func (h *pollHandler) GetUsersPolls(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.processUserPolls(r.Context(), userPolls, w)
+	h.processUserPolls(r.Context(), userPolls, w, userUUID)
 }

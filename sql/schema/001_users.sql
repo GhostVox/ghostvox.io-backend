@@ -5,6 +5,7 @@ CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4 (),
     created_at TIMESTAMP NOT NULL DEFAULT now (),
     updated_at TIMESTAMP NOT NULL DEFAULT now (),
+    user_name Text DEFAULT NULL,
     email TEXT NOT NULL UNIQUE,
     first_name TEXT NOT NULL,
     last_name TEXT DEFAULT NULL,

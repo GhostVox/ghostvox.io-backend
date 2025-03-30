@@ -97,6 +97,7 @@ type User struct {
 	ID             uuid.UUID
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+	UserName       sql.NullString
 	Email          string
 	FirstName      string
 	LastName       sql.NullString

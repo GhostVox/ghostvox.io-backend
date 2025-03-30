@@ -16,20 +16,14 @@ SET count = count + 1, updated_at = now()
 WHERE id = $1
 RETURNING id, name, created_at, updated_at, poll_id;
 
--- keep the below sql queries for admin pannel future
--- name: GetOptionByID :one
-SELECT id, name, created_at, updated_at, poll_id
-FROM options
-WHERE id = $1;
-
--- name: GetOptionsByPollID :many
-SELECT id, name, count, created_at, updated_at, poll_id
-FROM options
-WHERE poll_id = $1;
-
-
-
 -- name: DeleteOption :exec
 -- used by optionHandler.deleteOption
 DELETE FROM options
 WHERE id = $1;
+-- keep the below sql queries for admin pannel future
+
+
+-- name: GetOptionsByPollID :many
+SELECT *
+FROM options
+WHERE poll_id = $1;

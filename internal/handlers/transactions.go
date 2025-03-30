@@ -130,7 +130,7 @@ func deleteAndReplaceRefreshToken(ctx context.Context, cfg *config.APIConfig, us
 	return refreshRecord.Token, nil
 }
 
-func CreatePollWithOptions(ctx context.Context, cfg *config.APIConfig, poll poll) (err error) {
+func CreatePollWithOptions(ctx context.Context, cfg *config.APIConfig, poll poll, userUUID uuid.UUID) (err error) {
 	tx, err := cfg.DB.Begin()
 	if err != nil {
 		return err
@@ -142,8 +142,9 @@ func CreatePollWithOptions(ctx context.Context, cfg *config.APIConfig, poll poll
 		return err
 	}
 	expiresAt := time.Now().Add(time.Duration(exp) * 24 * time.Hour) // write a reusable helper for this and test.
+
 	pollRecord, err := qtx.CreatePoll(ctx, database.CreatePollParams{
-		UserID:      poll.UserID,
+		UserID:      userUUID,
 		Title:       poll.Title,
 		Description: poll.Description,
 		Category:    poll.Category,
@@ -174,32 +175,32 @@ func CreatePollWithOptions(ctx context.Context, cfg *config.APIConfig, poll poll
 	return nil
 }
 
-func CreateVoteAndUpdateOptionCount(ctx context.Context, cfg *config.APIConfig, userID, optionID, pollID uuid.UUID) (err error) {
+func CreateVoteAndUpdateOptionCount(ctx context.Context, cfg *config.APIConfig, userID, optionID, pollID uuid.UUID) (vote database.Vote, err error) {
 	tx, err := cfg.DB.Begin()
 	if err != nil {
-		return err
+		return database.Vote{}, err
 	}
 	defer tx.Rollback()
 	qtx := cfg.Queries.WithTx(tx)
 
-	_, err = qtx.CreateVote(ctx, database.CreateVoteParams{
+	vote, err = qtx.CreateVote(ctx, database.CreateVoteParams{
 		UserID:   userID,
 		PollID:   pollID,
 		OptionID: optionID,
 	})
 	if err != nil {
-		return err
+		return database.Vote{}, err
 	}
 
 	_, err = qtx.UpdateOptionCount(ctx, optionID)
 	if err != nil {
-		return err
+		return database.Vote{}, err
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		return err
+		return database.Vote{}, err
 	}
 
-	return nil
+	return vote, nil
 }

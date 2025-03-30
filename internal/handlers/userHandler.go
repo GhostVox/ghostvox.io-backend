@@ -33,46 +33,6 @@ func NewUserHandler(cfg *config.APIConfig) *UserHandler {
 	}
 }
 
-// func (h *UserHandler) GetAllUsers(w http.ResponseWriter, r *http.Request) {
-// 	users, err := h.cfg.Queries.GetUsers(r.Context())
-// 	if err != nil {
-// 		if errors.Is(err, sql.ErrNoRows) {
-// 			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), err)
-// 			return
-// 		}
-// 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), err)
-// 		return
-// 	}
-
-// 	respondWithJSON(w, http.StatusOK, users)
-// 	return
-// // }
-
-// func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
-// 	id := r.PathValue("userId")
-// 	if id == "" {
-// 		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), errors.New("missing id"))
-// 		return
-// 	}
-// 	UserUUID, err := uuid.Parse(id)
-// 	if err != nil {
-// 		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), errors.New("invalid id"))
-// 		return
-// 	}
-// 	user, err := h.cfg.Queries.GetUserById(r.Context(), UserUUID)
-// 	if err != nil {
-// 		if errors.Is(err, sql.ErrNoRows) {
-// 			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), err)
-// 			return
-// 		}
-// 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal Server Error", err)
-// 		return
-// 	}
-
-// 	respondWithJSON(w, http.StatusOK, user)
-// 	return
-// }
-
 func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	accessTokenCookie, err := r.Cookie("access_token")
 	if err != nil {
@@ -110,7 +70,7 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accessToken, err := auth.GenerateJWTAccessToken(updatedUserRecord.ID, updatedUserRecord.Role, updatedUserRecord.PictureUrl.String, updatedUserRecord.FirstName, updatedUserRecord.LastName.String, updatedUserRecord.Email, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
+	accessToken, err := auth.GenerateJWTAccessToken(updatedUserRecord.ID, updatedUserRecord.Role, updatedUserRecord.PictureUrl.String, updatedUserRecord.FirstName, updatedUserRecord.LastName.String, updatedUserRecord.UserName.String, updatedUserRecord.Email, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Token Generation Failed", err)
 		return
@@ -150,5 +110,37 @@ func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 
 	SetCookiesHelper(w, http.StatusOK, "", "", h.cfg)
 	respondWithJSON(w, http.StatusOK, map[string]interface{}{"msg": "User deleted successfully"})
+	return
+}
+
+func (h *UserHandler) GetUserStats(w http.ResponseWriter, r *http.Request) {
+	accessTokenCookie, err := r.Cookie("accessToken")
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), "Missing access token", err)
+		return
+	}
+	claims, err := auth.ValidateJWT(accessTokenCookie.Value, h.cfg.GhostvoxSecretKey)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), "Unauthorized", err)
+		return
+	}
+
+	userUUID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid user ID", err)
+		return
+	}
+
+	stats, err := h.cfg.Queries.GetUserStats(r.Context(), userUUID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "User not found", err)
+			return
+		}
+		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal Server Error", err)
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, stats)
 	return
 }

@@ -230,6 +230,56 @@ func (q *Queries) GetExpiredPollsToUpdate(ctx context.Context) ([]Poll, error) {
 	return items, nil
 }
 
+const getPollByID = `-- name: GetPollByID :one
+SELECT
+    polls.id as PollId,
+    polls.title as Title,
+    polls.category as Category,
+    polls.description as Description,
+    polls.expires_at as ExpiresAt,
+    polls.status as Status,
+    polls.created_at as CreatedAt,
+    polls.updated_at as UpdatedAt,
+    users.first_name as CreatorFirstName,
+    users.last_name as CreatorLastName
+
+FROM
+    polls join users on polls.user_id = users.id
+WHERE
+    polls.id = $1
+`
+
+type GetPollByIDRow struct {
+	Pollid           uuid.UUID
+	Title            string
+	Category         string
+	Description      string
+	Expiresat        time.Time
+	Status           PollStatus
+	Createdat        time.Time
+	Updatedat        time.Time
+	Creatorfirstname string
+	Creatorlastname  sql.NullString
+}
+
+func (q *Queries) GetPollByID(ctx context.Context, id uuid.UUID) (GetPollByIDRow, error) {
+	row := q.db.QueryRowContext(ctx, getPollByID, id)
+	var i GetPollByIDRow
+	err := row.Scan(
+		&i.Pollid,
+		&i.Title,
+		&i.Category,
+		&i.Description,
+		&i.Expiresat,
+		&i.Status,
+		&i.Createdat,
+		&i.Updatedat,
+		&i.Creatorfirstname,
+		&i.Creatorlastname,
+	)
+	return i, err
+}
+
 const getPollsByUser = `-- name: GetPollsByUser :many
 SELECT
 polls.id as PollId,

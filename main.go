@@ -83,6 +83,7 @@ func main() {
 	// Initialize handlers
 	rootHandler := handlers.NewRootHandler(cfg)
 	pollHandler := handlers.NewPollHandler(cfg)
+	commentHandler := handlers.NewCommentHandler(cfg)
 	voteHandler := handlers.NewVoteHandler(cfg)
 	optionHandler := handlers.NewOptionHandler(cfg)
 	userHandler := handlers.NewUserHandler(cfg)
@@ -104,13 +105,19 @@ func main() {
 	mux.HandleFunc("GET /api/v1/polls/finished", mw.LoggingMiddleware(pollHandler.GetAllFinishedPolls)) // in use
 	mux.HandleFunc("GET /api/v1/polls/active", mw.LoggingMiddleware(pollHandler.GetAllActivePolls))     // in use
 
-	mux.HandleFunc("GET /api/v1/polls/by-user/{userId}", mw.LoggingMiddleware(pollHandler.GetUsersPolls)) // in use
+	mux.HandleFunc("GET /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.GetPollByID)) // in use
+
+	mux.HandleFunc("GET /api/v1/polls/{pollId}/comments", mw.LoggingMiddleware(commentHandler.GetAllPollComments))
+
+	mux.HandleFunc("GET /api/v1/users/{userId}/polls", mw.LoggingMiddleware(pollHandler.GetUsersPolls)) // in use
 
 	mux.HandleFunc("PUT /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.UpdatePoll))
 
 	mux.HandleFunc("POST /api/v1/polls", mw.LoggingMiddleware(pollHandler.CreatePoll))
 
 	mux.HandleFunc("POST /api/v1/polls/{pollId}/vote", mw.LoggingMiddleware(voteHandler.VoteOnPoll))
+
+	mux.HandleFunc("POST /api/v1/polls/{pollId}/comments", mw.LoggingMiddleware(commentHandler.CreatePollComment))
 
 	mux.HandleFunc("DELETE /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.DeletePoll))
 	// End of poll routes
@@ -132,7 +139,7 @@ func main() {
 	mux.HandleFunc("GET /api/v1/admin/users", mw.AdminRole(cfg, mw.LoggingMiddleware(adminHandler.GetAllUsers)).ServeHTTP)
 
 	// User public route ✅
-
+	mux.HandleFunc("GET /api/v1/users/stats", mw.LoggingMiddleware(userHandler.GetUserStats))
 	mux.HandleFunc("PUT /api/v1/users/{userId}", mw.LoggingMiddleware(userHandler.UpdateUser))
 
 	mux.HandleFunc("DELETE /api/v1/users/{userId}", mw.LoggingMiddleware(userHandler.DeleteUser))

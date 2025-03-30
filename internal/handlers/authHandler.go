@@ -68,7 +68,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate Access Token (JWT)
-	accessToken, err := auth.GenerateJWTAccessToken(userRecord.ID, userRecord.Role, userRecord.PictureUrl.String, userRecord.FirstName, userRecord.LastName.String, userRecord.Email, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
+	accessToken, err := auth.GenerateJWTAccessToken(userRecord.ID, userRecord.Role, userRecord.PictureUrl.String, userRecord.FirstName, userRecord.LastName.String, userRecord.Email, userRecord.UserName.String, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Access token generation failed", err)
 		return
@@ -106,7 +106,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate Access Token (JWT)
-	accessToken, err := auth.GenerateJWTAccessToken(userRecord.ID, userRecord.Role, userRecord.PictureUrl.String, userRecord.FirstName, userRecord.LastName.String, userRecord.Email, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
+	accessToken, err := auth.GenerateJWTAccessToken(userRecord.ID, userRecord.Role, userRecord.PictureUrl.String, userRecord.FirstName, userRecord.LastName.String, userRecord.UserName.String, userRecord.Email, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Access token generation failed", err)
 		return
@@ -144,7 +144,7 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate New Access Token
-	accessToken, err := auth.GenerateJWTAccessToken(userRecord.ID, userRecord.Role, userRecord.PictureUrl.String, userRecord.FirstName, userRecord.LastName.String, userRecord.Email, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
+	accessToken, err := auth.GenerateJWTAccessToken(userRecord.ID, userRecord.Role, userRecord.PictureUrl.String, userRecord.FirstName, userRecord.LastName.String, userRecord.UserName.String, userRecord.Email, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Failed to generate access token", err)
 		return

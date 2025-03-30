@@ -35,9 +35,10 @@ func TestAdminRoleMiddleware(t *testing.T) {
 		lastName := "Doe"
 		email := "john.doe@example.com"
 		duration := time.Duration(time.Hour * 24)
+		userName := "john.doe"
 
 		token, err := auth.GenerateJWTAccessToken(
-			userID, role, picture, firstName, lastName, email,
+			userID, role, picture, firstName, lastName, userName, email,
 			apiConfig.GhostvoxSecretKey, duration)
 		if err != nil {
 			t.Fatalf("Failed to generate token: %v", err)
@@ -74,9 +75,10 @@ func TestAdminRoleMiddleware(t *testing.T) {
 		lastName := "User"
 		email := "regular.user@example.com"
 		duration := time.Duration(3600 * time.Second)
+		userName := "regular.user"
 
 		token, err := auth.GenerateJWTAccessToken(
-			userID, role, picture, firstName, lastName, email, apiConfig.GhostvoxSecretKey, duration)
+			userID, role, picture, firstName, lastName, userName, email, apiConfig.GhostvoxSecretKey, duration)
 		if err != nil {
 			t.Fatalf("Failed to generate token: %v", err)
 		}

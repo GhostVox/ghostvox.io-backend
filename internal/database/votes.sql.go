@@ -23,6 +23,7 @@ type CreateVoteParams struct {
 	UserID   uuid.UUID
 }
 
+// in use in transaction CreateVoteAndUpdateOptionCount
 func (q *Queries) CreateVote(ctx context.Context, arg CreateVoteParams) (Vote, error) {
 	row := q.db.QueryRowContext(ctx, createVote, arg.PollID, arg.OptionID, arg.UserID)
 	var i Vote
@@ -37,7 +38,7 @@ func (q *Queries) CreateVote(ctx context.Context, arg CreateVoteParams) (Vote, e
 }
 
 const getTotalVotesByPollID = `-- name: GetTotalVotesByPollID :one
-SELECT count(*) FROM votes WHERE poll_id = $1
+SELECT COUNT(*) FROM votes WHERE poll_id = $1
 `
 
 func (q *Queries) GetTotalVotesByPollID(ctx context.Context, pollID uuid.UUID) (int64, error) {
@@ -81,6 +82,28 @@ func (q *Queries) GetTotalVotesByPollIDs(ctx context.Context, dollar_1 []uuid.UU
 		return nil, err
 	}
 	return items, nil
+}
+
+const getUserVoteByPollID = `-- name: GetUserVoteByPollID :one
+SELECT id, poll_id, option_id, created_at, user_id FROM votes WHERE poll_id = $1 AND user_id = $2
+`
+
+type GetUserVoteByPollIDParams struct {
+	PollID uuid.UUID
+	UserID uuid.UUID
+}
+
+func (q *Queries) GetUserVoteByPollID(ctx context.Context, arg GetUserVoteByPollIDParams) (Vote, error) {
+	row := q.db.QueryRowContext(ctx, getUserVoteByPollID, arg.PollID, arg.UserID)
+	var i Vote
+	err := row.Scan(
+		&i.ID,
+		&i.PollID,
+		&i.OptionID,
+		&i.CreatedAt,
+		&i.UserID,
+	)
+	return i, err
 }
 
 const getVotesByOptionID = `-- name: GetVotesByOptionID :many

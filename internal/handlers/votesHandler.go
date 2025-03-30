@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/GhostVox/ghostvox.io-backend/internal/config"
@@ -9,9 +10,9 @@ import (
 )
 
 type Vote struct {
-	PollId   string       `json:"poll_id"`
-	OptionId string       `json:"option_id"`
-	UserId   string       `json:"user_id"`
+	PollId   string       `json:"pollId"`
+	OptionId string       `json:"optionId"`
+	UserId   string       `json:"userId"`
 	Poll     PollResponse `json:"poll"`
 }
 
@@ -43,6 +44,8 @@ func (vh *voteHandler) VoteOnPoll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	fmt.Printf("%+v\n", vote)
+
 	optionUUID, err := uuid.Parse(vote.OptionId)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid option ID format", err)
@@ -55,12 +58,13 @@ func (vh *voteHandler) VoteOnPoll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = CreateVoteAndUpdateOptionCount(r.Context(), vh.cfg, userUUID, optionUUID, pollUUID)
+	voteRecord, err := CreateVoteAndUpdateOptionCount(r.Context(), vh.cfg, userUUID, optionUUID, pollUUID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Failed to create vote", err)
 		return
 	}
 	vote.Poll.Votes++
+	vote.Poll.UserVote = &voteRecord
 
 	respondWithJSON(w, http.StatusCreated, vote.Poll)
 

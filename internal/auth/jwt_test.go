@@ -42,8 +42,10 @@ func TestValidateJWT_Valid(t *testing.T) {
 	firstname := "John"
 	lastname := "Doe"
 	email := "john.doe@example.com"
+	userName := "john.doe"
+
 	// Generate a token with a 15-minute expiration.
-	tokenStr, err := GenerateJWTAccessToken(userID, role, picture, firstname, lastname, email, jwtSecret, 15*time.Minute)
+	tokenStr, err := GenerateJWTAccessToken(userID, role, picture, firstname, lastname, userName, email, jwtSecret, 15*time.Minute)
 	if err != nil {
 		t.Fatalf("unexpected error generating token: %v", err)
 	}
@@ -74,8 +76,10 @@ func TestValidateJWT_Expired(t *testing.T) {
 	firstname := "John"
 	lastname := "Doe"
 	email := "john.doe@example.com"
+	userName := "john.doe"
+
 	// Generate a token that expired 1 minute ago.
-	tokenStr, err := GenerateJWTAccessToken(userID, role, picture, firstname, lastname, email, jwtSecret, -1*time.Minute)
+	tokenStr, err := GenerateJWTAccessToken(userID, role, picture, firstname, lastname, userName, email, jwtSecret, -1*time.Minute)
 	if err != nil {
 		t.Fatalf("unexpected error generating token: %v", err)
 	}
@@ -101,8 +105,9 @@ func TestValidateJWT_InvalidSecret(t *testing.T) {
 	firstname := "John"
 	lastname := "Doe"
 	email := "john.doe@example.com"
+	userName := "john.doe"
 
-	tokenStr, err := GenerateJWTAccessToken(userID, role, picture, firstname, lastname, email, jwtSecret, 15*time.Minute)
+	tokenStr, err := GenerateJWTAccessToken(userID, role, picture, firstname, lastname, userName, email, jwtSecret, 15*time.Minute)
 	if err != nil {
 		t.Fatalf("unexpected error generating token: %v", err)
 	}
@@ -151,8 +156,9 @@ func TestGenerateJWTAccessToken(t *testing.T) {
 	firstname := "John"
 	lastname := "Doe"
 	email := "john.doe@example.com"
+	userName := "john.doe"
 
-	tokenStr, err := GenerateJWTAccessToken(userID, role, picture, firstname, lastname, email, jwtSecret, accessTokenDuration)
+	tokenStr, err := GenerateJWTAccessToken(userID, role, picture, firstname, lastname, userName, email, jwtSecret, accessTokenDuration)
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}

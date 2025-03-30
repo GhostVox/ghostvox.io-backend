@@ -7,10 +7,65 @@ package database
 
 import (
 	"context"
+	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 )
+
+const createComment = `-- name: CreateComment :one
+INSERT INTO comments (poll_id, user_id, content)
+VALUES ($1, $2, $3)
+RETURNING id
+`
+
+type CreateCommentParams struct {
+	PollID  uuid.UUID
+	UserID  uuid.UUID
+	Content string
+}
+
+// in Use in commenthandler.CreateComment
+func (q *Queries) CreateComment(ctx context.Context, arg CreateCommentParams) (uuid.UUID, error) {
+	row := q.db.QueryRowContext(ctx, createComment, arg.PollID, arg.UserID, arg.Content)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const getAllCommentsByPollID = `-- name: GetAllCommentsByPollID :one
+ -- in Use in commenthandler.GetAllPollComments
+SELECT comments.id, comments.user_id, comments.poll_id, comments.content, comments.created_at, comments.updated_at, users.user_name
+FROM comments
+JOIN users ON comments.user_id = users.id
+WHERE poll_id = $1
+`
+
+type GetAllCommentsByPollIDRow struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	PollID    uuid.UUID
+	Content   string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	UserName  sql.NullString
+}
+
+func (q *Queries) GetAllCommentsByPollID(ctx context.Context, pollID uuid.UUID) (GetAllCommentsByPollIDRow, error) {
+	row := q.db.QueryRowContext(ctx, getAllCommentsByPollID, pollID)
+	var i GetAllCommentsByPollIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.PollID,
+		&i.Content,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.UserName,
+	)
+	return i, err
+}
 
 const getTotalComments = `-- name: GetTotalComments :one
 SELECT COUNT(*) FROM comments WHERE poll_id = $1

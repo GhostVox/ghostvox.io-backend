@@ -24,6 +24,7 @@ type CreateOptionsParams struct {
 	Column2 []string
 }
 
+// in use by transaction createPollWithOptions
 func (q *Queries) CreateOptions(ctx context.Context, arg CreateOptionsParams) (int64, error) {
 	result, err := q.db.ExecContext(ctx, createOptions, arg.PollID, pq.Array(arg.Column2))
 	if err != nil {
@@ -37,69 +38,37 @@ DELETE FROM options
 WHERE id = $1
 `
 
+// used by optionHandler.deleteOption
 func (q *Queries) DeleteOption(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.ExecContext(ctx, deleteOption, id)
 	return err
 }
 
-const getOptionByID = `-- name: GetOptionByID :one
-SELECT id, name, created_at, updated_at, poll_id
-FROM options
-WHERE id = $1
-`
-
-type GetOptionByIDRow struct {
-	ID        uuid.UUID
-	Name      string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	PollID    uuid.UUID
-}
-
-func (q *Queries) GetOptionByID(ctx context.Context, id uuid.UUID) (GetOptionByIDRow, error) {
-	row := q.db.QueryRowContext(ctx, getOptionByID, id)
-	var i GetOptionByIDRow
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.PollID,
-	)
-	return i, err
-}
-
 const getOptionsByPollID = `-- name: GetOptionsByPollID :many
-SELECT id, name, count, created_at, updated_at, poll_id
+
+
+SELECT id, name, poll_id, count, created_at, updated_at
 FROM options
 WHERE poll_id = $1
 `
 
-type GetOptionsByPollIDRow struct {
-	ID        uuid.UUID
-	Name      string
-	Count     int32
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	PollID    uuid.UUID
-}
-
-func (q *Queries) GetOptionsByPollID(ctx context.Context, pollID uuid.UUID) ([]GetOptionsByPollIDRow, error) {
+// keep the below sql queries for admin pannel future
+func (q *Queries) GetOptionsByPollID(ctx context.Context, pollID uuid.UUID) ([]Option, error) {
 	rows, err := q.db.QueryContext(ctx, getOptionsByPollID, pollID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetOptionsByPollIDRow
+	var items []Option
 	for rows.Next() {
-		var i GetOptionsByPollIDRow
+		var i Option
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
+			&i.PollID,
 			&i.Count,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.PollID,
 		); err != nil {
 			return nil, err
 		}
@@ -165,6 +134,7 @@ type UpdateOptionCountRow struct {
 	PollID    uuid.UUID
 }
 
+// in use by transaction createVoteAndUpdateOptionCount
 func (q *Queries) UpdateOptionCount(ctx context.Context, id uuid.UUID) (UpdateOptionCountRow, error) {
 	row := q.db.QueryRowContext(ctx, updateOptionCount, id)
 	var i UpdateOptionCountRow

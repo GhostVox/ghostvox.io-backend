@@ -11,7 +11,10 @@ WHERE poll_id = ANY($1::uuid[])
 GROUP BY poll_id;
 
 -- name: GetTotalVotesByPollID :one
-SELECT count(*) FROM votes WHERE poll_id = $1;
+SELECT COUNT(*) FROM votes WHERE poll_id = $1;
+
+-- name: GetUserVoteByPollID :one
+SELECT * FROM votes WHERE poll_id = $1 AND user_id = $2;
 
 -- name: GetVotesByOptionID :many
 SELECT * FROM votes WHERE option_id = $1;
