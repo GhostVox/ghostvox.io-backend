@@ -10,7 +10,7 @@ GROUP BY poll_id;
 
 -- name: GetAllCommentsByPollID :one
  -- in Use in commenthandler.GetAllPollComments
-SELECT comments.*, users.user_name
+SELECT comments.*, users.user_name as username, users.picture_url as avatar_url
 FROM comments
 JOIN users ON comments.user_id = users.id
 WHERE poll_id = $1;

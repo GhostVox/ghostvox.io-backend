@@ -44,45 +44,6 @@ func (q *Queries) DeleteOption(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
-const getOptionsByPollID = `-- name: GetOptionsByPollID :many
-
-
-SELECT id, name, poll_id, count, created_at, updated_at
-FROM options
-WHERE poll_id = $1
-`
-
-// keep the below sql queries for admin pannel future
-func (q *Queries) GetOptionsByPollID(ctx context.Context, pollID uuid.UUID) ([]Option, error) {
-	rows, err := q.db.QueryContext(ctx, getOptionsByPollID, pollID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Option
-	for rows.Next() {
-		var i Option
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.PollID,
-			&i.Count,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getOptionsByPollIDs = `-- name: GetOptionsByPollIDs :many
 SELECT id, name, poll_id, count, created_at, updated_at FROM options
 WHERE poll_id = ANY($1::uuid[])

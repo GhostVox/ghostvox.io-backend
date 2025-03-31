@@ -1,11 +1,9 @@
 package handlers
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -26,19 +24,19 @@ type poll struct {
 }
 
 type PollResponse struct {
-	ID          uuid.UUID         `json:"id"`
-	Title       string            `json:"title"`
-	Creator     string            `json:"creator"`
-	Description string            `json:"description"`
-	Status      string            `json:"status"`
-	Category    string            `json:"category"`
-	DaysLeft    int64             `json:"daysLeft"`
-	Options     []database.Option `json:"options"`
-	Votes       int64             `json:"votes"`
-	Comments    int64             `json:"comments"`
-	EndedAt     time.Time         `json:"endedAt"`
-	Winner      string            `json:"winner"`
-	UserVote    *database.Vote    `json:"userVote,omitempty"`
+	ID          uuid.UUID      `json:"id"`
+	Title       string         `json:"title"`
+	Creator     string         `json:"creator"`
+	Description string         `json:"description"`
+	Status      string         `json:"status"`
+	Category    string         `json:"category"`
+	DaysLeft    int64          `json:"daysLeft"`
+	Options     []Option       `json:"options"`
+	Votes       int64          `json:"votes"`
+	Comments    int64          `json:"comments"`
+	EndedAt     time.Time      `json:"endedAt"`
+	Winner      string         `json:"winner"`
+	UserVote    *database.Vote `json:"userVote,omitempty"`
 }
 
 type pollHandler struct {
@@ -79,16 +77,6 @@ func (h *pollHandler) GetPollByID(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusBadRequest, "pollId", "Invalid poll ID", err)
 		return
 	}
-	poll, err := h.cfg.Queries.GetPollByID(r.Context(), pollID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "Poll not found", err)
-			return
-		} else {
-			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
-			return
-		}
-	}
 
 	cookie, err := r.Cookie("accessToken")
 	if err != nil {
@@ -107,59 +95,33 @@ func (h *pollHandler) GetPollByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	options, err := h.cfg.Queries.GetOptionsByPollID(r.Context(), pollID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "Poll options not found", err)
-			return
-		} else {
-			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
-			return
-		}
-	}
+	poll, err := h.cfg.Queries.GetPollByID(r.Context(), database.GetPollByIDParams{
+		ID:     pollID,
+		UserID: userUUID,
+	})
 
-	totalVotesByPollID, err := h.cfg.Queries.GetTotalVotesByPollID(r.Context(), pollID)
+	var options []Option
+	err = json.Unmarshal(poll.Options, &options)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "Votes not found", err)
-			return
-		} else {
-			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
-			return
-		}
+		respondWithError(w, http.StatusBadRequest, "options", "Invalid options", err)
+		return
 	}
-
-	totalCommentsByPollID, err := h.cfg.Queries.GetTotalComments(r.Context(), pollID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "Comments not found", err)
-			return
-		} else {
-			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
-			return
-		}
-	}
-
 	userVote, err := h.cfg.Queries.GetUserVoteByPollID(r.Context(), database.GetUserVoteByPollIDParams{
 		PollID: pollID,
 		UserID: userUUID,
 	})
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
-		return
-	}
 
 	pollResponse := PollResponse{
 		ID:          poll.Pollid,
 		Title:       poll.Title,
-		Creator:     poll.Creatorfirstname + " " + poll.Creatorlastname.String,
+		Creator:     poll.Creatorfirstname.String + " " + poll.Creatorlastname.String,
 		Description: poll.Description,
 		Status:      string(poll.Status),
 		Category:    poll.Category,
 		Options:     options,
 		DaysLeft:    int64(poll.Expiresat.Sub(time.Now()).Hours() / 24),
-		Votes:       totalVotesByPollID,
-		Comments:    totalCommentsByPollID,
+		Votes:       poll.Votes,
+		Comments:    poll.Comments,
 		EndedAt:     poll.Expiresat,
 		UserVote:    &userVote,
 	}
@@ -295,182 +257,6 @@ func (h *pollHandler) DeletePoll(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-// Helper function to process poll options, votes, and comments
-func (h *pollHandler) processPollData(ctx context.Context, pollIDs []uuid.UUID) (
-	map[uuid.UUID][]database.Option,
-	map[uuid.UUID]int64,
-	map[uuid.UUID]int64,
-	error) {
-
-	// Get all options, votes, and comments in batch operations
-	allOptions, err := h.cfg.Queries.GetOptionsByPollIDs(ctx, pollIDs)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, nil, nil, fmt.Errorf("failed to retrieve poll options: %w", err)
-	}
-
-	allVoteCounts, err := h.cfg.Queries.GetTotalVotesByPollIDs(ctx, pollIDs)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, nil, nil, fmt.Errorf("failed to retrieve vote counts: %w", err)
-	}
-
-	allCommentCounts, err := h.cfg.Queries.GetTotalCommentsByPollIDs(ctx, pollIDs)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, nil, nil, fmt.Errorf("failed to retrieve comment counts: %w", err)
-	}
-
-	// Organize data by poll ID for easy lookup
-	optionsByPollID := make(map[uuid.UUID][]database.Option)
-	for _, option := range allOptions {
-		optionsByPollID[option.PollID] = append(optionsByPollID[option.PollID], option)
-	}
-
-	votesByPollID := make(map[uuid.UUID]int64)
-	for _, vote := range allVoteCounts {
-		votesByPollID[vote.PollID] = vote.Count
-	}
-
-	commentsByPollID := make(map[uuid.UUID]int64)
-	for _, comment := range allCommentCounts {
-		commentsByPollID[comment.PollID] = comment.Count
-	}
-
-	return optionsByPollID, votesByPollID, commentsByPollID, nil
-}
-
-// Process status-based polls
-func (h *pollHandler) processStatusPolls(ctx context.Context, polls []database.GetAllPollsByStatusListRow, w http.ResponseWriter, userID uuid.UUID) {
-	if len(polls) == 0 {
-		respondWithJSON(w, http.StatusOK, []PollResponse{})
-		return
-	}
-
-	// Extract all poll IDs
-	pollIDs := make([]uuid.UUID, len(polls))
-	for i, poll := range polls {
-		pollIDs[i] = poll.Pollid
-	}
-
-	// Get processed poll data
-	optionsByPollID, votesByPollID, commentsByPollID, err := h.processPollData(ctx, pollIDs)
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
-		return
-	}
-
-	// Build response
-	responsePolls := make([]PollResponse, 0, len(polls))
-	for _, poll := range polls {
-		pollID := poll.Pollid
-		options := optionsByPollID[pollID]
-
-		userVoted := true
-		voteRecord, err := h.cfg.Queries.GetUserVoteByPollID(ctx, database.GetUserVoteByPollIDParams{
-			PollID: pollID,
-			UserID: userID,
-		})
-		if err != nil {
-			if err == sql.ErrNoRows {
-				userVoted = false
-			} else {
-				respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
-				return
-			}
-		}
-		pollResponse := PollResponse{
-			ID:          pollID,
-			Title:       poll.Title,
-			Creator:     poll.Creatorfirstname + " " + poll.Creatorlastname.String,
-			Status:      string(poll.Status),
-			Description: poll.Description,
-			Category:    poll.Category,
-			Options:     options,
-			DaysLeft:    int64(poll.Expiresat.Sub(time.Now()).Hours() / 24),
-			Votes:       votesByPollID[pollID],
-			Comments:    commentsByPollID[pollID],
-			EndedAt:     poll.Expiresat,
-		}
-
-		if userVoted {
-			pollResponse.UserVote = &voteRecord
-		}
-
-		if poll.Status == database.PollStatusArchived && len(options) > 0 {
-			pollResponse.Winner = getWinner(options).String()
-		}
-
-		responsePolls = append(responsePolls, pollResponse)
-	}
-
-	respondWithJSON(w, http.StatusOK, responsePolls)
-}
-
-// Process user-based polls
-func (h *pollHandler) processUserPolls(ctx context.Context, polls []database.GetPollsByUserRow, w http.ResponseWriter, userUUID uuid.UUID) {
-	if len(polls) == 0 {
-		respondWithJSON(w, http.StatusOK, []PollResponse{})
-		return
-	}
-
-	// Extract all poll IDs
-	pollIDs := make([]uuid.UUID, len(polls))
-	for i, poll := range polls {
-		pollIDs[i] = poll.Pollid
-	}
-
-	// Get processed poll data
-	optionsByPollID, votesByPollID, commentsByPollID, err := h.processPollData(ctx, pollIDs)
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
-		return
-	}
-
-	// Build response
-	responsePolls := make([]PollResponse, 0, len(polls))
-	for _, poll := range polls {
-		pollID := poll.Pollid
-		options := optionsByPollID[pollID]
-
-		userVoted := true
-		voteRecord, err := h.cfg.Queries.GetUserVoteByPollID(ctx, database.GetUserVoteByPollIDParams{
-			PollID: pollID,
-			UserID: userUUID,
-		})
-		if err != nil {
-			if err == sql.ErrNoRows {
-				userVoted = false
-			} else {
-				respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
-				return
-			}
-		}
-		pollResponse := PollResponse{
-			ID:          pollID,
-			Title:       poll.Title,
-			Creator:     poll.Creatorfirstname + " " + poll.Creatorlastname.String,
-			Status:      string(poll.Status),
-			Description: poll.Description,
-			Category:    poll.Category,
-			Options:     options,
-			DaysLeft:    int64(poll.Expiresat.Sub(time.Now()).Hours() / 24),
-			Votes:       votesByPollID[pollID],
-			Comments:    commentsByPollID[pollID],
-			EndedAt:     poll.Expiresat,
-		}
-
-		if userVoted {
-			pollResponse.UserVote = &voteRecord
-		}
-
-		if poll.Status == database.PollStatusArchived && len(options) > 0 {
-			pollResponse.Winner = getWinner(options).String()
-		}
-
-		responsePolls = append(responsePolls, pollResponse)
-	}
-
-	respondWithJSON(w, http.StatusOK, responsePolls)
-}
-
 func (h *pollHandler) GetAllActivePolls(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := getLimitAndOffset(r)
 	if err != nil {
@@ -505,6 +291,7 @@ func (h *pollHandler) GetAllActivePolls(w http.ResponseWriter, r *http.Request) 
 		Offset:   int32(offset),
 		Status:   database.PollStatus(database.PollStatusActive),
 		Category: category,
+		UserID:   userUUID,
 	})
 
 	if err != nil {
@@ -515,8 +302,29 @@ func (h *pollHandler) GetAllActivePolls(w http.ResponseWriter, r *http.Request) 
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
 		return
 	}
+	pollsResp := make([]PollResponse, len(polls))
+	for i, poll := range polls {
+		var options []Option
+		json.Unmarshal(poll.Options, &options)
+		p := PollResponse{
+			ID:          poll.Pollid,
+			Title:       poll.Title,
+			Creator:     poll.Creatorfirstname + " " + poll.Creatorlastname.String,
+			Description: poll.Description,
+			Status:      string(poll.Status),
+			Category:    poll.Category,
+			DaysLeft:    int64(poll.Expiresat.Sub(time.Now()).Hours() / 24),
+			Options:     options,
+			Votes:       poll.Votes,
+			Comments:    poll.Comments,
+			EndedAt:     poll.Expiresat,
+			Winner:      getWinner(options),
+		}
+		pollsResp[i] = p
+	}
 
-	h.processStatusPolls(r.Context(), polls, w, userUUID)
+	respondWithJSON(w, http.StatusOK, pollsResp)
+
 }
 
 func (h *pollHandler) GetAllFinishedPolls(w http.ResponseWriter, r *http.Request) {
@@ -554,6 +362,7 @@ func (h *pollHandler) GetAllFinishedPolls(w http.ResponseWriter, r *http.Request
 		Offset:   int32(offset),
 		Status:   database.PollStatus(database.PollStatusArchived),
 		Category: category,
+		UserID:   userUUID,
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -564,7 +373,42 @@ func (h *pollHandler) GetAllFinishedPolls(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	h.processStatusPolls(r.Context(), polls, w, userUUID)
+	pollsResp := make([]PollResponse, len(polls))
+	for i, poll := range polls {
+		var options []Option
+		json.Unmarshal(poll.Options, &options)
+		p := PollResponse{
+			ID:          poll.Pollid,
+			Title:       poll.Title,
+			Creator:     poll.Creatorfirstname + " " + poll.Creatorlastname.String,
+			Description: poll.Description,
+			Status:      string(poll.Status),
+			Category:    poll.Category,
+			DaysLeft:    int64(poll.Expiresat.Sub(time.Now()).Hours() / 24),
+			Options:     options,
+			Votes:       poll.Votes,
+			Comments:    poll.Comments,
+			EndedAt:     poll.Expiresat,
+			Winner:      getWinner(options),
+		}
+
+		if poll.Uservote.Valid {
+			uv, err := h.cfg.Queries.GetUserVoteByPollID(r.Context(), database.GetUserVoteByPollIDParams{
+				PollID: p.ID,
+				UserID: userUUID,
+			})
+			if err != nil {
+				respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
+				return
+			}
+			p.UserVote = &uv
+		}
+
+		pollsResp[i] = p
+	}
+
+	respondWithJSON(w, http.StatusOK, pollsResp)
+
 }
 
 func (h *pollHandler) GetUsersPolls(w http.ResponseWriter, r *http.Request) {
@@ -586,23 +430,6 @@ func (h *pollHandler) GetUsersPolls(w http.ResponseWriter, r *http.Request) {
 		category = "%%"
 	}
 
-	cookie, err := r.Cookie("accessToken")
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid cookie", err)
-		return
-	}
-	claims, err := auth.ValidateJWT(cookie.Value, h.cfg.GhostvoxSecretKey)
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid cookie", err)
-		return
-	}
-
-	userUUID, err := uuid.Parse(claims.Subject)
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid user UUID", err)
-		return
-	}
-
 	userPolls, err := h.cfg.Queries.GetPollsByUser(r.Context(), database.GetPollsByUserParams{
 		UserID:   userId,
 		Limit:    int32(limit),
@@ -618,5 +445,98 @@ func (h *pollHandler) GetUsersPolls(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.processUserPolls(r.Context(), userPolls, w, userUUID)
+	pollsResp := make([]PollResponse, len(userPolls))
+	for i, poll := range userPolls {
+		var options []Option
+		json.Unmarshal(poll.Options, &options)
+		p := PollResponse{
+			ID:          poll.Pollid,
+			Title:       poll.Title,
+			Creator:     poll.Creatorfirstname + " " + poll.Creatorlastname.String,
+			Description: poll.Description,
+			Status:      string(poll.Status),
+			Category:    poll.Category,
+			DaysLeft:    int64(poll.Expiresat.Sub(time.Now()).Hours() / 24),
+			Options:     options,
+			Votes:       poll.Votes,
+			Comments:    poll.Comments,
+			EndedAt:     poll.Expiresat,
+			Winner:      getWinner(options),
+		}
+		pollsResp[i] = p
+	}
+
+	respondWithJSON(w, http.StatusOK, pollsResp)
+
+}
+
+func (h *pollHandler) GetRecentPolls(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("accessToken")
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid cookie", err)
+		return
+	}
+
+	claims, err := auth.ValidateJWT(cookie.Value, h.cfg.GhostvoxSecretKey)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid JWT", err)
+		return
+	}
+
+	userID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid user UUID", err)
+		return
+	}
+
+	polls, err := h.cfg.Queries.GetRecentPolls(r.Context(), userID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			respondWithJSON(w, http.StatusOK, []PollResponse{})
+			return
+		}
+		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Failed to retrieve recent polls", err)
+		return
+	}
+
+	pollsResp := make([]PollResponse, len(polls))
+	for i, poll := range polls {
+		var options []Option
+		json.Unmarshal(poll.Options, &options)
+
+		userVoted := true
+		userVote, err := h.cfg.Queries.GetUserVoteByPollID(r.Context(), database.GetUserVoteByPollIDParams{
+			UserID: userID,
+			PollID: poll.Pollid,
+		})
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				userVoted = false
+			} else {
+				respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Failed to retrieve user vote", err)
+				return
+			}
+		}
+		p := PollResponse{
+			ID:          poll.Pollid,
+			Title:       poll.Title,
+			Creator:     poll.Creatorfirstname + " " + poll.Creatorlastname.String,
+			Description: poll.Description,
+			Status:      string(poll.Status),
+			Category:    poll.Category,
+			DaysLeft:    int64(poll.Expiresat.Sub(time.Now()).Hours() / 24),
+			Options:     options,
+			Votes:       poll.Votes,
+			Comments:    poll.Comments,
+			EndedAt:     poll.Expiresat,
+			Winner:      getWinner(options),
+		}
+
+		if userVoted {
+			p.UserVote = &userVote
+		}
+		pollsResp[i] = p
+	}
+
+	respondWithJSON(w, http.StatusOK, pollsResp)
 }

@@ -36,7 +36,7 @@ func (q *Queries) CreateComment(ctx context.Context, arg CreateCommentParams) (u
 
 const getAllCommentsByPollID = `-- name: GetAllCommentsByPollID :one
  -- in Use in commenthandler.GetAllPollComments
-SELECT comments.id, comments.user_id, comments.poll_id, comments.content, comments.created_at, comments.updated_at, users.user_name
+SELECT comments.id, comments.user_id, comments.poll_id, comments.content, comments.created_at, comments.updated_at, users.user_name as username, users.picture_url as avatar_url
 FROM comments
 JOIN users ON comments.user_id = users.id
 WHERE poll_id = $1
@@ -49,7 +49,8 @@ type GetAllCommentsByPollIDRow struct {
 	Content   string
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	UserName  sql.NullString
+	Username  sql.NullString
+	AvatarUrl sql.NullString
 }
 
 func (q *Queries) GetAllCommentsByPollID(ctx context.Context, pollID uuid.UUID) (GetAllCommentsByPollIDRow, error) {
@@ -62,7 +63,8 @@ func (q *Queries) GetAllCommentsByPollID(ctx context.Context, pollID uuid.UUID) 
 		&i.Content,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.UserName,
+		&i.Username,
+		&i.AvatarUrl,
 	)
 	return i, err
 }

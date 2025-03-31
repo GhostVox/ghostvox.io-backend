@@ -13,6 +13,7 @@ type Option struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
 	PollID    string `json:"poll_id"`
+	Count     int32  `json:"count"`
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
 }

@@ -8,6 +8,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -120,16 +121,25 @@ SELECT
     polls.created_at as CreatedAt,
     polls.updated_at as UpdatedAt,
     users.first_name as CreatorFirstName,
-    users.last_name as CreatorLastName
-
+    users.last_name as CreatorLastName,
+    COUNT(DISTINCT votes.id) as votes,
+    COUNT(DISTINCT comments.id) as comments,
+    (SELECT json_agg(options.*) FROM options WHERE options.poll_id = polls.id) as Options,
+    (SELECT votes.option_id FROM votes WHERE votes.poll_id = polls.id AND votes.user_id = $5 LIMIT 1) as UserVote
 FROM
-    polls join users on polls.user_id = users.id
+    polls
+JOIN users ON polls.user_id = users.id
+LEFT JOIN votes ON polls.id = votes.poll_id
+LEFT JOIN comments ON polls.id = comments.poll_id
 WHERE
-    polls.status = $1 and polls.category  like($2)
-    Group by polls.id, users.id
-    Order by polls.expires_at desc
-
-    limit $3 offset $4
+    polls.status = $1 AND polls.category LIKE($2)
+GROUP BY
+    polls.id,
+    users.id,
+    users.first_name,
+    users.last_name
+ORDER BY polls.expires_at DESC
+LIMIT $3 OFFSET $4
 `
 
 type GetAllPollsByStatusListParams struct {
@@ -137,6 +147,7 @@ type GetAllPollsByStatusListParams struct {
 	Category string
 	Limit    int32
 	Offset   int32
+	UserID   uuid.UUID
 }
 
 type GetAllPollsByStatusListRow struct {
@@ -150,6 +161,10 @@ type GetAllPollsByStatusListRow struct {
 	Updatedat        time.Time
 	Creatorfirstname string
 	Creatorlastname  sql.NullString
+	Votes            int64
+	Comments         int64
+	Options          json.RawMessage
+	Uservote         uuid.NullUUID
 }
 
 // used by pollhandler.GetAllfinishedpolls and pollhandler.GetAllActivePolls
@@ -159,6 +174,7 @@ func (q *Queries) GetAllPollsByStatusList(ctx context.Context, arg GetAllPollsBy
 		arg.Category,
 		arg.Limit,
 		arg.Offset,
+		arg.UserID,
 	)
 	if err != nil {
 		return nil, err
@@ -178,6 +194,10 @@ func (q *Queries) GetAllPollsByStatusList(ctx context.Context, arg GetAllPollsBy
 			&i.Updatedat,
 			&i.Creatorfirstname,
 			&i.Creatorlastname,
+			&i.Votes,
+			&i.Comments,
+			&i.Options,
+			&i.Uservote,
 		); err != nil {
 			return nil, err
 		}
@@ -232,22 +252,38 @@ func (q *Queries) GetExpiredPollsToUpdate(ctx context.Context) ([]Poll, error) {
 
 const getPollByID = `-- name: GetPollByID :one
 SELECT
-    polls.id as PollId,
-    polls.title as Title,
-    polls.category as Category,
-    polls.description as Description,
-    polls.expires_at as ExpiresAt,
-    polls.status as Status,
-    polls.created_at as CreatedAt,
-    polls.updated_at as UpdatedAt,
-    users.first_name as CreatorFirstName,
-    users.last_name as CreatorLastName
-
+  polls.id as PollId,
+  polls.title as Title,
+  polls.category as Category,
+  polls.description as Description,
+  polls.expires_at as ExpiresAt,
+  polls.status as Status,
+  polls.created_at as CreatedAt,
+  polls.updated_at as UpdatedAt,
+  users.first_name as CreatorFirstName,
+  users.last_name as CreatorLastName,
+  COUNT(DISTINCT votes.id) as votes,
+  COUNT(DISTINCT comments.id) as comments,
+  (SELECT json_agg(options.*) FROM options WHERE options.poll_id = polls.id) as Options,
+  (SELECT votes.option_id FROM votes WHERE votes.poll_id = polls.id AND votes.user_id = $2 LIMIT 1) as UserVote
 FROM
-    polls join users on polls.user_id = users.id
+  polls
+  LEFT JOIN users ON polls.user_id = users.id
+  LEFT JOIN votes ON polls.id = votes.poll_id
+  LEFT JOIN comments ON polls.id = comments.poll_id
 WHERE
-    polls.id = $1
+  polls.id = $1
+GROUP BY
+  polls.id,
+  users.id,
+  users.first_name,
+  users.last_name
 `
+
+type GetPollByIDParams struct {
+	ID     uuid.UUID
+	UserID uuid.UUID
+}
 
 type GetPollByIDRow struct {
 	Pollid           uuid.UUID
@@ -258,12 +294,16 @@ type GetPollByIDRow struct {
 	Status           PollStatus
 	Createdat        time.Time
 	Updatedat        time.Time
-	Creatorfirstname string
+	Creatorfirstname sql.NullString
 	Creatorlastname  sql.NullString
+	Votes            int64
+	Comments         int64
+	Options          json.RawMessage
+	Uservote         uuid.NullUUID
 }
 
-func (q *Queries) GetPollByID(ctx context.Context, id uuid.UUID) (GetPollByIDRow, error) {
-	row := q.db.QueryRowContext(ctx, getPollByID, id)
+func (q *Queries) GetPollByID(ctx context.Context, arg GetPollByIDParams) (GetPollByIDRow, error) {
+	row := q.db.QueryRowContext(ctx, getPollByID, arg.ID, arg.UserID)
 	var i GetPollByIDRow
 	err := row.Scan(
 		&i.Pollid,
@@ -276,13 +316,17 @@ func (q *Queries) GetPollByID(ctx context.Context, id uuid.UUID) (GetPollByIDRow
 		&i.Updatedat,
 		&i.Creatorfirstname,
 		&i.Creatorlastname,
+		&i.Votes,
+		&i.Comments,
+		&i.Options,
+		&i.Uservote,
 	)
 	return i, err
 }
 
 const getPollsByUser = `-- name: GetPollsByUser :many
 SELECT
-polls.id as PollId,
+    polls.id as PollId,
     polls.title as Title,
     polls.category as Category,
     polls.description as Description,
@@ -291,12 +335,23 @@ polls.id as PollId,
     polls.created_at as CreatedAt,
     polls.updated_at as UpdatedAt,
     users.first_name as CreatorFirstName,
-    users.last_name as CreatorLastName
+    users.last_name as CreatorLastName,
+    COUNT(DISTINCT votes.id) as votes,
+    COUNT(DISTINCT comments.id) as comments,
+    (SELECT json_agg(options.*) FROM options WHERE options.poll_id = polls.id) as Options,
+    (SELECT option_id FROM votes WHERE votes.poll_id = polls.id AND votes.user_id = $1 LIMIT 1) as UserVote
 FROM
-    polls join users on polls.user_id = users.id
+    polls
+JOIN users ON polls.user_id = users.id
+LEFT JOIN votes ON polls.id = votes.poll_id
+LEFT JOIN comments ON polls.id = comments.poll_id
 WHERE
-    user_id = $1 and polls.category like($2)
-    limit $3 offset $4
+    polls.user_id = $1 AND polls.category LIKE $2
+GROUP BY
+    polls.id,
+    users.first_name,
+    users.last_name
+LIMIT $3 OFFSET $4
 `
 
 type GetPollsByUserParams struct {
@@ -317,6 +372,10 @@ type GetPollsByUserRow struct {
 	Updatedat        time.Time
 	Creatorfirstname string
 	Creatorlastname  sql.NullString
+	Votes            int64
+	Comments         int64
+	Options          json.RawMessage
+	Uservote         uuid.NullUUID
 }
 
 // used by pollhandler.GetPollsByUser
@@ -345,6 +404,90 @@ func (q *Queries) GetPollsByUser(ctx context.Context, arg GetPollsByUserParams) 
 			&i.Updatedat,
 			&i.Creatorfirstname,
 			&i.Creatorlastname,
+			&i.Votes,
+			&i.Comments,
+			&i.Options,
+			&i.Uservote,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getRecentPolls = `-- name: GetRecentPolls :many
+SELECT
+    polls.id as PollId,
+    polls.title as Title,
+    polls.category as Category,
+    polls.description as Description,
+    polls.expires_at as ExpiresAt,
+    polls.status as Status,
+    polls.created_at as CreatedAt,
+    polls.updated_at as UpdatedAt,
+    users.first_name as CreatorFirstName,
+    users.last_name as CreatorLastName,
+    count(distinct votes.id) as votes,
+    count(distinct comments.id) as comments,
+    (SELECT json_agg(options.*) FROM options WHERE options.poll_id = polls.id) as Options,
+     (SELECT votes.option_id FROM votes WHERE votes.poll_id = polls.id AND votes.user_id = $1 LIMIT 1) as UserVote
+FROM polls
+JOIN users ON polls.user_id = users.id
+LEFT JOIN votes ON polls.id = votes.poll_id
+LEFT JOIN comments ON polls.id = comments.poll_id
+GROUP BY polls.id, users.first_name, users.last_name
+ORDER BY polls.expires_at DESC
+LIMIT 10
+`
+
+type GetRecentPollsRow struct {
+	Pollid           uuid.UUID
+	Title            string
+	Category         string
+	Description      string
+	Expiresat        time.Time
+	Status           PollStatus
+	Createdat        time.Time
+	Updatedat        time.Time
+	Creatorfirstname string
+	Creatorlastname  sql.NullString
+	Votes            int64
+	Comments         int64
+	Options          json.RawMessage
+	Uservote         uuid.NullUUID
+}
+
+func (q *Queries) GetRecentPolls(ctx context.Context, userID uuid.UUID) ([]GetRecentPollsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getRecentPolls, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetRecentPollsRow
+	for rows.Next() {
+		var i GetRecentPollsRow
+		if err := rows.Scan(
+			&i.Pollid,
+			&i.Title,
+			&i.Category,
+			&i.Description,
+			&i.Expiresat,
+			&i.Status,
+			&i.Createdat,
+			&i.Updatedat,
+			&i.Creatorfirstname,
+			&i.Creatorlastname,
+			&i.Votes,
+			&i.Comments,
+			&i.Options,
+			&i.Uservote,
 		); err != nil {
 			return nil, err
 		}

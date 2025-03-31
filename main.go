@@ -105,6 +105,8 @@ func main() {
 	mux.HandleFunc("GET /api/v1/polls/finished", mw.LoggingMiddleware(pollHandler.GetAllFinishedPolls)) // in use
 	mux.HandleFunc("GET /api/v1/polls/active", mw.LoggingMiddleware(pollHandler.GetAllActivePolls))     // in use
 
+	mux.HandleFunc("GET /api/v1/polls/recent", mw.LoggingMiddleware(pollHandler.GetRecentPolls)) // in use
+
 	mux.HandleFunc("GET /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.GetPollByID)) // in use
 
 	mux.HandleFunc("GET /api/v1/polls/{pollId}/comments", mw.LoggingMiddleware(commentHandler.GetAllPollComments))

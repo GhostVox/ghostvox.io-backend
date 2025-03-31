@@ -20,10 +20,3 @@ RETURNING id, name, created_at, updated_at, poll_id;
 -- used by optionHandler.deleteOption
 DELETE FROM options
 WHERE id = $1;
--- keep the below sql queries for admin pannel future
-
-
--- name: GetOptionsByPollID :many
-SELECT *
-FROM options
-WHERE poll_id = $1;

@@ -10,7 +10,7 @@ RETURNING
 -- name: GetPollsByUser :many
 -- used by pollhandler.GetPollsByUser
 SELECT
-polls.id as PollId,
+    polls.id as PollId,
     polls.title as Title,
     polls.category as Category,
     polls.description as Description,
@@ -19,14 +19,23 @@ polls.id as PollId,
     polls.created_at as CreatedAt,
     polls.updated_at as UpdatedAt,
     users.first_name as CreatorFirstName,
-    users.last_name as CreatorLastName
+    users.last_name as CreatorLastName,
+    COUNT(DISTINCT votes.id) as votes,
+    COUNT(DISTINCT comments.id) as comments,
+    (SELECT json_agg(options.*) FROM options WHERE options.poll_id = polls.id) as Options,
+    (SELECT option_id FROM votes WHERE votes.poll_id = polls.id AND votes.user_id = $1 LIMIT 1) as UserVote
 FROM
-    polls join users on polls.user_id = users.id
+    polls
+JOIN users ON polls.user_id = users.id
+LEFT JOIN votes ON polls.id = votes.poll_id
+LEFT JOIN comments ON polls.id = comments.poll_id
 WHERE
-    user_id = $1 and polls.category like($2)
-    limit $3 offset $4;
-
-
+    polls.user_id = $1 AND polls.category LIKE $2
+GROUP BY
+    polls.id,
+    users.first_name,
+    users.last_name
+LIMIT $3 OFFSET $4;
 
 
 -- name: UpdatePollStatus :one
@@ -55,19 +64,57 @@ SELECT
     polls.created_at as CreatedAt,
     polls.updated_at as UpdatedAt,
     users.first_name as CreatorFirstName,
-    users.last_name as CreatorLastName
-
+    users.last_name as CreatorLastName,
+    COUNT(DISTINCT votes.id) as votes,
+    COUNT(DISTINCT comments.id) as comments,
+    (SELECT json_agg(options.*) FROM options WHERE options.poll_id = polls.id) as Options,
+    (SELECT votes.option_id FROM votes WHERE votes.poll_id = polls.id AND votes.user_id = $5 LIMIT 1) as UserVote
 FROM
-    polls join users on polls.user_id = users.id
+    polls
+JOIN users ON polls.user_id = users.id
+LEFT JOIN votes ON polls.id = votes.poll_id
+LEFT JOIN comments ON polls.id = comments.poll_id
 WHERE
-    polls.status = $1 and polls.category  like($2)
-    Group by polls.id, users.id
-    Order by polls.expires_at desc
-
-    limit $3 offset $4
-    ;
+    polls.status = $1 AND polls.category LIKE($2)
+GROUP BY
+    polls.id,
+    users.id,
+    users.first_name,
+    users.last_name
+ORDER BY polls.expires_at DESC
+LIMIT $3 OFFSET $4;
 
 -- name: GetPollByID :one
+-- name: GetPollByID :one
+SELECT
+  polls.id as PollId,
+  polls.title as Title,
+  polls.category as Category,
+  polls.description as Description,
+  polls.expires_at as ExpiresAt,
+  polls.status as Status,
+  polls.created_at as CreatedAt,
+  polls.updated_at as UpdatedAt,
+  users.first_name as CreatorFirstName,
+  users.last_name as CreatorLastName,
+  COUNT(DISTINCT votes.id) as votes,
+  COUNT(DISTINCT comments.id) as comments,
+  (SELECT json_agg(options.*) FROM options WHERE options.poll_id = polls.id) as Options,
+  (SELECT votes.option_id FROM votes WHERE votes.poll_id = polls.id AND votes.user_id = $2 LIMIT 1) as UserVote
+FROM
+  polls
+  LEFT JOIN users ON polls.user_id = users.id
+  LEFT JOIN votes ON polls.id = votes.poll_id
+  LEFT JOIN comments ON polls.id = comments.poll_id
+WHERE
+  polls.id = $1
+GROUP BY
+  polls.id,
+  users.id,
+  users.first_name,
+  users.last_name;
+
+-- name: GetRecentPolls :many
 SELECT
     polls.id as PollId,
     polls.title as Title,
@@ -78,12 +125,18 @@ SELECT
     polls.created_at as CreatedAt,
     polls.updated_at as UpdatedAt,
     users.first_name as CreatorFirstName,
-    users.last_name as CreatorLastName
-
-FROM
-    polls join users on polls.user_id = users.id
-WHERE
-    polls.id = $1;
+    users.last_name as CreatorLastName,
+    count(distinct votes.id) as votes,
+    count(distinct comments.id) as comments,
+    (SELECT json_agg(options.*) FROM options WHERE options.poll_id = polls.id) as Options,
+     (SELECT votes.option_id FROM votes WHERE votes.poll_id = polls.id AND votes.user_id = $1 LIMIT 1) as UserVote
+FROM polls
+JOIN users ON polls.user_id = users.id
+LEFT JOIN votes ON polls.id = votes.poll_id
+LEFT JOIN comments ON polls.id = comments.poll_id
+GROUP BY polls.id, users.first_name, users.last_name
+ORDER BY polls.expires_at DESC
+LIMIT 10;
 
 --not used yet
 -- name: GetAllPolls :many

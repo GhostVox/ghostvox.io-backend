@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/GhostVox/ghostvox.io-backend/internal/config"
@@ -43,8 +42,6 @@ func (vh *voteHandler) VoteOnPoll(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid request body", err)
 		return
 	}
-
-	fmt.Printf("%+v\n", vote)
 
 	optionUUID, err := uuid.Parse(vote.OptionId)
 	if err != nil {
