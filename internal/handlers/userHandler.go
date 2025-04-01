@@ -195,7 +195,6 @@ func (h *UserHandler) AddUserName(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusConflict, http.StatusText(http.StatusConflict), "Username already exists", err)
 		return
 	}
-
 	user, err := h.cfg.Queries.UpdateUserName(r.Context(), database.UpdateUserNameParams{
 		ID:       userUUID,
 		UserName: NullStringHelper(username),

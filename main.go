@@ -143,7 +143,7 @@ func main() {
 	// User public route ✅
 	mux.HandleFunc("GET /api/v1/users/stats", mw.LoggingMiddleware(userHandler.GetUserStats))
 	mux.HandleFunc("PUT /api/v1/users/{userId}", mw.LoggingMiddleware(userHandler.UpdateUser))
-	mux.HandleFunc("PUT /api/v1/users/username", mw.LoggingMiddleware(userHandler.AddUserName))
+	mux.HandleFunc("POST /api/v1/users/username", mw.LoggingMiddleware(userHandler.AddUserName))
 
 	mux.HandleFunc("DELETE /api/v1/users/{userId}", mw.LoggingMiddleware(userHandler.DeleteUser))
 	// End of users routes

@@ -55,7 +55,6 @@ func getWinner(options []Option) string {
 		if option.Count > currentCount {
 			currentWinner = option.ID
 			currentCount = option.Count
-			fmt.Println(option.Count)
 			continue
 		}
 		if option.Count == currentCount {
