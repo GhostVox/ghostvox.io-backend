@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"time"
@@ -24,6 +25,7 @@ type User struct {
 	ProviderID string    `json:"provider_id,omitempty"`
 	Role       string    `json:"role,omitempty"`
 	PictureURL string    `json:"picture,omitempty"`
+	UserName   string    `json:"user_name,omitempty"`
 }
 
 type UserHandler struct {
@@ -37,7 +39,7 @@ func NewUserHandler(cfg *config.APIConfig) *UserHandler {
 }
 
 func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
-	accessTokenCookie, err := r.Cookie("access_token")
+	accessTokenCookie, err := r.Cookie("accessToken")
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), "Missing Access Token", err)
 		return
@@ -55,18 +57,15 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal Server Error", err)
 		return
 	}
+
 	UserUUID, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid ID", err)
 		return
 	}
-	hashedPassword, err := auth.HashPassword(user.Password)
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Password Hashing Failed", err)
-		return
-	}
-	user.Password = hashedPassword
+
 	user.ID = UserUUID
+	fmt.Println(user)
 	refreshToken, updatedUserRecord, err := updateUserAndRefreshToken(r.Context(), h.cfg.DB, h.cfg.Queries, user)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal Server Error", err)

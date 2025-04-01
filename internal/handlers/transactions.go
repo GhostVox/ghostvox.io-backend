@@ -63,32 +63,35 @@ func updateUserAndRefreshToken(ctx context.Context, db *sql.DB, queries *databas
 	defer tx.Rollback()
 	qtx := queries.WithTx(tx)
 
-	userRecord, err := qtx.UpdateUser(ctx, database.UpdateUserParams{
-		ID:             user.ID,
-		Email:          user.Email,
-		FirstName:      user.FirstName,
-		LastName:       NullStringHelper(user.LastName),
-		HashedPassword: NullStringHelper(user.Password),
-		Provider:       NullStringHelper(user.Provider),
-		ProviderID:     NullStringHelper(user.ProviderID),
-		PictureUrl:     NullStringHelper(user.PictureURL),
-		Role:           user.Role,
+	userRecord, err := qtx.UpdateUserProfile(ctx, database.UpdateUserProfileParams{
+		ID:        user.ID,
+		Email:     user.Email,
+		FirstName: user.FirstName,
+		LastName:  NullStringHelper(user.LastName),
+		UserName:  NullStringHelper(user.UserName),
 	})
 	if err != nil {
 		return "", database.User{}, errors.New("Failed to update user")
 	}
 
 	refreshTokenString, err := auth.GenerateRefreshToken()
-	qtx.CreateRefreshToken(ctx, database.CreateRefreshTokenParams{
+	if err != nil {
+		fmt.Println("error creating refresh token:", err)
+		return "", database.User{}, errors.New("Failed add refresh token to db")
+	}
+
+	_, err = qtx.UpdateRefreshToken(ctx, database.UpdateRefreshTokenParams{
 		UserID: userRecord.ID,
 		Token:  refreshTokenString,
 	})
 	if err != nil {
+		fmt.Println("error creating refresh token:", err)
 		return "", database.User{}, errors.New("Failed add refresh token to db")
 	}
 
 	err = tx.Commit()
 	if err != nil {
+		fmt.Println("error committing transaction:", err)
 		return "", database.User{}, errors.New("Failed to commit transaction")
 	}
 

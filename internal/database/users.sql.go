@@ -251,46 +251,22 @@ func (q *Queries) GetUsers(ctx context.Context) ([]User, error) {
 	return items, nil
 }
 
-const updateUser = `-- name: UpdateUser :one
+const updateUserName = `-- name: UpdateUserName :one
 UPDATE
     users
 SET
-    email = COALESCE($1, email),
-    first_name = COALESCE($2, first_name),
-    last_name = COALESCE($3, last_name),
-    hashed_password = COALESCE($4, hashed_password),
-    provider = COALESCE($5, provider),
-    provider_id = COALESCE($6, provider_id),
-    role = COALESCE($7, role),
-    picture_url = COALESCE($9, avatar_url),
+    user_name =  $1,
     updated_at = NOW()
-WHERE id = $8 RETURNING id, created_at, updated_at, user_name, email, first_name, last_name, hashed_password, provider, provider_id, role, picture_url
+WHERE id = $2 RETURNING id, created_at, updated_at, user_name, email, first_name, last_name, hashed_password, provider, provider_id, role, picture_url
 `
 
-type UpdateUserParams struct {
-	Email          string
-	FirstName      string
-	LastName       sql.NullString
-	HashedPassword sql.NullString
-	Provider       sql.NullString
-	ProviderID     sql.NullString
-	Role           string
-	ID             uuid.UUID
-	PictureUrl     sql.NullString
+type UpdateUserNameParams struct {
+	UserName sql.NullString
+	ID       uuid.UUID
 }
 
-func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {
-	row := q.db.QueryRowContext(ctx, updateUser,
-		arg.Email,
-		arg.FirstName,
-		arg.LastName,
-		arg.HashedPassword,
-		arg.Provider,
-		arg.ProviderID,
-		arg.Role,
-		arg.ID,
-		arg.PictureUrl,
-	)
+func (q *Queries) UpdateUserName(ctx context.Context, arg UpdateUserNameParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, updateUserName, arg.UserName, arg.ID)
 	var i User
 	err := row.Scan(
 		&i.ID,
@@ -309,22 +285,34 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 	return i, err
 }
 
-const updateUserName = `-- name: UpdateUserName :one
+const updateUserProfile = `-- name: UpdateUserProfile :one
 UPDATE
     users
 SET
-    user_name =  $1,
+    email = COALESCE($1, email),
+    first_name = COALESCE($2, first_name),
+    last_name = COALESCE($3, last_name),
+    user_name = COALESCE($4, user_name),
     updated_at = NOW()
-WHERE id = $2 RETURNING id, created_at, updated_at, user_name, email, first_name, last_name, hashed_password, provider, provider_id, role, picture_url
+WHERE id = $5 RETURNING id, created_at, updated_at, user_name, email, first_name, last_name, hashed_password, provider, provider_id, role, picture_url
 `
 
-type UpdateUserNameParams struct {
-	UserName sql.NullString
-	ID       uuid.UUID
+type UpdateUserProfileParams struct {
+	Email     string
+	FirstName string
+	LastName  sql.NullString
+	UserName  sql.NullString
+	ID        uuid.UUID
 }
 
-func (q *Queries) UpdateUserName(ctx context.Context, arg UpdateUserNameParams) (User, error) {
-	row := q.db.QueryRowContext(ctx, updateUserName, arg.UserName, arg.ID)
+func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, updateUserProfile,
+		arg.Email,
+		arg.FirstName,
+		arg.LastName,
+		arg.UserName,
+		arg.ID,
+	)
 	var i User
 	err := row.Scan(
 		&i.ID,

@@ -21,20 +21,16 @@ FROM
 WHERE
     email = $1;
 
--- name: UpdateUser :one
+-- name: UpdateUserProfile :one
 UPDATE
     users
 SET
     email = COALESCE($1, email),
     first_name = COALESCE($2, first_name),
     last_name = COALESCE($3, last_name),
-    hashed_password = COALESCE($4, hashed_password),
-    provider = COALESCE($5, provider),
-    provider_id = COALESCE($6, provider_id),
-    role = COALESCE($7, role),
-    picture_url = COALESCE($9, avatar_url),
+    user_name = COALESCE($4, user_name),
     updated_at = NOW()
-WHERE id = $8 RETURNING *;
+WHERE id = $5 RETURNING *;
 
 
 -- name: CreateUser :one
