@@ -207,9 +207,14 @@ func (gh *githubHandler) GithubCallbackHandler(w http.ResponseWriter, r *http.Re
 
 	// Set cookies
 	SetCookiesHelper(w, http.StatusOK, refreshTokenString, accessToken, gh.cfg)
+	if !userRecord.UserName.Valid {
+		http.Redirect(w, r, gh.cfg.AccessOrigin+"/setup-username", http.StatusTemporaryRedirect)
+		return
+	} else {
+		// Redirect to dashboard
+		http.Redirect(w, r, gh.cfg.AccessOrigin+"/dashboard", http.StatusTemporaryRedirect)
 
-	// Redirect to dashboard
-	http.Redirect(w, r, gh.cfg.AccessOrigin+"/dashboard", http.StatusTemporaryRedirect)
+	}
 }
 
 // GitHub email structure

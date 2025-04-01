@@ -155,5 +155,10 @@ func (gh *googleHandler) GoogleCallbackHandler(w http.ResponseWriter, r *http.Re
 
 	// Set cookies
 	SetCookiesHelper(w, http.StatusOK, refreshTokenString, accessToken, gh.cfg)
-	http.Redirect(w, r, gh.cfg.AccessOrigin+"/dashboard", http.StatusTemporaryRedirect)
+	if !userRecord.UserName.Valid {
+		http.Redirect(w, r, gh.cfg.AccessOrigin+"/setup-username", http.StatusTemporaryRedirect)
+		return
+	} else {
+		http.Redirect(w, r, gh.cfg.AccessOrigin+"/dashboard", http.StatusTemporaryRedirect)
+	}
 }

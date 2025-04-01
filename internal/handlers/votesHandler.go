@@ -61,7 +61,7 @@ func (vh *voteHandler) VoteOnPoll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	vote.Poll.Votes++
-	vote.Poll.UserVote = &voteRecord
+	vote.Poll.UserVote = uuid.NullUUID{UUID: voteRecord.ID, Valid: true}
 
 	respondWithJSON(w, http.StatusCreated, vote.Poll)
 

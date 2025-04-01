@@ -12,6 +12,23 @@ import (
 	"github.com/google/uuid"
 )
 
+const checkUserNameExists = `-- name: CheckUserNameExists :one
+SELECT EXISTS(
+    Select 1
+FROM
+    users
+WHERE
+    user_name = $1
+    ) as exists
+`
+
+func (q *Queries) CheckUserNameExists(ctx context.Context, userName sql.NullString) (bool, error) {
+	row := q.db.QueryRowContext(ctx, checkUserNameExists, userName)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO
     users (email, first_name, last_name, hashed_password,provider,provider_id,role,picture_url)
@@ -274,6 +291,40 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		arg.ID,
 		arg.PictureUrl,
 	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.UserName,
+		&i.Email,
+		&i.FirstName,
+		&i.LastName,
+		&i.HashedPassword,
+		&i.Provider,
+		&i.ProviderID,
+		&i.Role,
+		&i.PictureUrl,
+	)
+	return i, err
+}
+
+const updateUserName = `-- name: UpdateUserName :one
+UPDATE
+    users
+SET
+    user_name =  $1,
+    updated_at = NOW()
+WHERE id = $2 RETURNING id, created_at, updated_at, user_name, email, first_name, last_name, hashed_password, provider, provider_id, role, picture_url
+`
+
+type UpdateUserNameParams struct {
+	UserName sql.NullString
+	ID       uuid.UUID
+}
+
+func (q *Queries) UpdateUserName(ctx context.Context, arg UpdateUserNameParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, updateUserName, arg.UserName, arg.ID)
 	var i User
 	err := row.Scan(
 		&i.ID,

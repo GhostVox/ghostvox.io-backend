@@ -24,19 +24,19 @@ type poll struct {
 }
 
 type PollResponse struct {
-	ID          uuid.UUID      `json:"id"`
-	Title       string         `json:"title"`
-	Creator     string         `json:"creator"`
-	Description string         `json:"description"`
-	Status      string         `json:"status"`
-	Category    string         `json:"category"`
-	DaysLeft    int64          `json:"daysLeft"`
-	Options     []Option       `json:"options"`
-	Votes       int64          `json:"votes"`
-	Comments    int64          `json:"comments"`
-	EndedAt     time.Time      `json:"endedAt"`
-	Winner      string         `json:"winner"`
-	UserVote    *database.Vote `json:"userVote,omitempty"`
+	ID          uuid.UUID     `json:"id"`
+	Title       string        `json:"title"`
+	Creator     string        `json:"creator"`
+	Description string        `json:"description"`
+	Status      string        `json:"status"`
+	Category    string        `json:"category"`
+	DaysLeft    int64         `json:"daysLeft"`
+	Options     []Option      `json:"options"`
+	Votes       int64         `json:"votes"`
+	Comments    int64         `json:"comments"`
+	EndedAt     time.Time     `json:"endedAt"`
+	Winner      string        `json:"winner"`
+	UserVote    uuid.NullUUID `json:"userVote,omitempty"`
 }
 
 type pollHandler struct {
@@ -106,10 +106,6 @@ func (h *pollHandler) GetPollByID(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusBadRequest, "options", "Invalid options", err)
 		return
 	}
-	userVote, err := h.cfg.Queries.GetUserVoteByPollID(r.Context(), database.GetUserVoteByPollIDParams{
-		PollID: pollID,
-		UserID: userUUID,
-	})
 
 	pollResponse := PollResponse{
 		ID:          poll.Pollid,
@@ -123,7 +119,7 @@ func (h *pollHandler) GetPollByID(w http.ResponseWriter, r *http.Request) {
 		Votes:       poll.Votes,
 		Comments:    poll.Comments,
 		EndedAt:     poll.Expiresat,
-		UserVote:    &userVote,
+		UserVote:    poll.Uservote,
 	}
 
 	respondWithJSON(w, http.StatusOK, pollResponse)
@@ -319,6 +315,7 @@ func (h *pollHandler) GetAllActivePolls(w http.ResponseWriter, r *http.Request) 
 			Comments:    poll.Comments,
 			EndedAt:     poll.Expiresat,
 			Winner:      getWinner(options),
+			UserVote:    poll.Uservote,
 		}
 		pollsResp[i] = p
 	}
@@ -390,20 +387,8 @@ func (h *pollHandler) GetAllFinishedPolls(w http.ResponseWriter, r *http.Request
 			Comments:    poll.Comments,
 			EndedAt:     poll.Expiresat,
 			Winner:      getWinner(options),
+			UserVote:    poll.Uservote,
 		}
-
-		if poll.Uservote.Valid {
-			uv, err := h.cfg.Queries.GetUserVoteByPollID(r.Context(), database.GetUserVoteByPollIDParams{
-				PollID: p.ID,
-				UserID: userUUID,
-			})
-			if err != nil {
-				respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
-				return
-			}
-			p.UserVote = &uv
-		}
-
 		pollsResp[i] = p
 	}
 
@@ -504,19 +489,6 @@ func (h *pollHandler) GetRecentPolls(w http.ResponseWriter, r *http.Request) {
 		var options []Option
 		json.Unmarshal(poll.Options, &options)
 
-		userVoted := true
-		userVote, err := h.cfg.Queries.GetUserVoteByPollID(r.Context(), database.GetUserVoteByPollIDParams{
-			UserID: userID,
-			PollID: poll.Pollid,
-		})
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				userVoted = false
-			} else {
-				respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Failed to retrieve user vote", err)
-				return
-			}
-		}
 		p := PollResponse{
 			ID:          poll.Pollid,
 			Title:       poll.Title,
@@ -530,11 +502,9 @@ func (h *pollHandler) GetRecentPolls(w http.ResponseWriter, r *http.Request) {
 			Comments:    poll.Comments,
 			EndedAt:     poll.Expiresat,
 			Winner:      getWinner(options),
+			UserVote:    poll.Uservote,
 		}
 
-		if userVoted {
-			p.UserVote = &userVote
-		}
 		pollsResp[i] = p
 	}
 

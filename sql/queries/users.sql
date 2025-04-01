@@ -69,3 +69,20 @@ SELECT
     (SELECT COUNT(*) FROM votes WHERE votes.poll_id IN (SELECT id FROM polls WHERE polls.user_id = $1)) as total_votes
 FROM users
 WHERE users.id = $1;
+
+-- name: UpdateUserName :one
+UPDATE
+    users
+SET
+    user_name =  $1,
+    updated_at = NOW()
+WHERE id = $2 RETURNING *;
+
+-- name: CheckUserNameExists :one
+SELECT EXISTS(
+    Select 1
+FROM
+    users
+WHERE
+    user_name = $1
+    ) as exists;
