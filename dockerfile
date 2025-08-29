@@ -1,5 +1,4 @@
 
-
 ARG GO_VERSION=1.23.6
 FROM --platform=$BUILDPLATFORM golang:${GO_VERSION} AS build
 WORKDIR /src
@@ -37,9 +36,7 @@ RUN --mount=type=cache,target=/go/pkg/mod/ \
 # reproducibility is important, consider using a versioned tag
 # (e.g., alpine:3.17.2) or SHA (e.g., alpine@sha256:c41ab5c992deb4fe7e5da09f67a8804a46bd0592bfdf0b1847dde0e0889d2bff).
 FROM alpine:latest AS final
-
-# Install any runtime dependencies that are needed to run your application.
-# Leverage a cache mount to /var/cache/apk/ to speed up subsequent builds.
+# Install runtime dependencies + goose for migrations
 RUN --mount=type=cache,target=/var/cache/apk \
     apk --update add \
         ca-certificates \
@@ -47,8 +44,12 @@ RUN --mount=type=cache,target=/var/cache/apk \
         && \
         update-ca-certificates
 
-# Create a non-privileged user that the app will run under.
-# See https://docs.docker.com/go/dockerfile-user-best-practices/
+# Install goose
+RUN wget -O /usr/local/bin/goose https://github.com/pressly/goose/releases/latest/download/goose_linux_x86_64 \
+    && chmod +x /usr/local/bin/goose
+
+
+# Create user
 ARG UID=10001
 RUN adduser \
     --disabled-password \
@@ -58,13 +59,13 @@ RUN adduser \
     --no-create-home \
     --uid "${UID}" \
     appuser
-USER appuser
 
-# Copy the executable from the "build" stage.
+# Copy files before switching user
 COPY --from=build /bin/server /bin/
+COPY sql/schema/ /app/migrations/
+COPY scripts/migrate.sh /scripts/
+RUN chmod +x /scripts/migrate.sh
 
-# Expose the port that the application listens on.
+USER appuser
 EXPOSE 8080
-
-# What the container should run when it is started.
-ENTRYPOINT [ "/bin/server" ]
+ENTRYPOINT ["/scripts/migrate.sh" ]

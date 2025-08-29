@@ -8,28 +8,32 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    env_file:
+      - .env 
+    volumes:
+      - ./localhost+2.pem:/app/certs/cert.pem:ro
+      - ./localhost+2-key.pem:/app/certs/key.pem:ro
     environment:
       # Add your database connection environment variables here
       - DB_HOST=db
       - DB_PORT=5432
-      - DB_NAME=example
+      - DB_NAME=ghostvox
       - DB_USER=postgres
-      # Note: In production, avoid plain text passwords
-      - DB_PASSWORD_FILE=/run/secrets/db-password
-    secrets:
-      - db-password
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_URL=postgres://postgres:${DB_PASSWORD}@db:5432/ghostvox?sslmode=disable
+      - TLS_CERT_PATH=/app/certs/cert.pem
+      - TLS_KEY_PATH=/app/certs/key.pem
+   
 
   db:
     image: postgres:15 # Specify version for reproducibility
     restart: always
     user: postgres
-    secrets:
-      - db-password
     volumes:
       - db-data:/var/lib/postgresql/data
     environment:
-      - POSTGRES_DB=example
-      - POSTGRES_PASSWORD_FILE=/run/secrets/db-password
+      - POSTGRES_DB=ghostvox
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
     expose:
       - 5432
     healthcheck:
@@ -41,6 +45,4 @@ services:
 volumes:
   db-data:
 
-secrets:
-  db-password:
-    file: db/password.txt
+

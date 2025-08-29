@@ -4,8 +4,7 @@ import (
 	"log"
 	"os"
 	"time"
-
-	"github.com/joho/godotenv"
+	//"github.com/joho/godotenv"
 )
 
 // EnvConfig holds all environment configuration
@@ -32,12 +31,12 @@ type EnvConfig struct {
 // LoadEnv loads environment variables and returns a config struct
 func LoadEnv() (*EnvConfig, error) {
 	// Load environment variables from .env file
-	err := godotenv.Load()
-	if err != nil {
-		log.Println("Error loading .env file")
-		// Continue anyway, as env vars might be set directly in the environment
-	}
-
+	//	err := godotenv.Load()
+	//	if err != nil {
+	//		log.Println("Error loading .env file")
+	//		// Continue anyway, as env vars might be set directly in the environment
+	//	}
+	//
 	// Define a helper function for required env vars
 	getRequiredEnv := func(key string) string {
 		val := os.Getenv(key)
@@ -46,9 +45,16 @@ func LoadEnv() (*EnvConfig, error) {
 		}
 		return val
 	}
+	// Get the  DB connection URL parts
 
+	DB_HOST := getRequiredEnv("DB_HOST")
+	DB_PORT := getRequiredEnv("DB_PORT")
+	DB_NAME := getRequiredEnv("DB_NAME")
+	DB_USER := getRequiredEnv("DB_USER")
+	DB_PASSWORD := getRequiredEnv("DB_PASSWORD")
+
+	dbURL := "postgres://" + DB_USER + ":" + DB_PASSWORD + "@" + DB_HOST + ":" + DB_PORT + "/" + DB_NAME + "?sslmode=disable"
 	// Get all required env vars
-	dbURL := getRequiredEnv("DB_URL")
 	platform := getRequiredEnv("PLATFORM")
 	secretKey := getRequiredEnv("GHOSTVOX_SECRET_KEY")
 	accessTokenExpStr := getRequiredEnv("ACCESS_TOKEN_EXPIRES")
@@ -76,12 +82,12 @@ func LoadEnv() (*EnvConfig, error) {
 	}
 
 	// Get optional env vars with defaults
-	certFile := os.Getenv("CERT_FILE")
+	certFile := os.Getenv("TLS_CERT_PATH")
 	if certFile == "" {
 		certFile = "./localhost+2.pem"
 	}
 
-	keyFile := os.Getenv("KEY_FILE")
+	keyFile := os.Getenv("TLS_KEY_PATH")
 	if keyFile == "" {
 		keyFile = "./localhost+2-key.pem"
 	}

@@ -17,12 +17,12 @@ type CommentHandler struct {
 }
 
 type CommentResponse struct {
-	ID          string `json:"id"`
-	UserID      string `json:"userId"`
-	UserName    string `json:"username"`
-	UserPicture string `json:"userPicture"`
-	Content     string `json:"content"`
-	CreatedAt   string `json:"createdAt"`
+	ID        string         `json:"ID"`
+	UserID    string         `json:"UserID"`
+	UserName  sql.NullString `json:"Username"`
+	AvatarUrl sql.NullString `json:"AvatarUrl"`
+	Content   string         `json:"Content"`
+	CreatedAt string         `json:"CreatedAt"`
 }
 
 func NewCommentHandler(cfg *config.APIConfig) *CommentHandler {
@@ -51,7 +51,6 @@ func (h *CommentHandler) GetAllPollComments(w http.ResponseWriter, r *http.Reque
 		respondWithError(w, http.StatusInternalServerError, "database", "Failed to retrieve comments", err)
 		return
 	}
-
 	respondWithJSON(w, http.StatusOK, comments)
 
 }
@@ -111,12 +110,48 @@ func (h *CommentHandler) CreatePollComment(w http.ResponseWriter, r *http.Reques
 	}
 
 	respondWithJSON(w, http.StatusCreated, CommentResponse{
-		ID:          commentID.String(),
-		UserID:      userUUID.String(),
-		UserName:    claims.UserName,
-		UserPicture: claims.PictureUrl,
-		Content:     comment.Content,
-		CreatedAt:   time.Now().Format(time.RFC3339),
+		ID:        commentID.String(),
+		UserID:    userUUID.String(),
+		UserName:  NullStringHelper(claims.UserName),
+		AvatarUrl: NullStringHelper(claims.PictureUrl),
+		Content:   comment.Content,
+		CreatedAt: time.Now().Format(time.RFC3339),
 	})
 
+}
+
+func (h *CommentHandler) DeletePollComment(w http.ResponseWriter, r *http.Request) {
+	// To be implemented
+	commentID := r.PathValue("commentId")
+	if commentID == "" {
+
+		respondWithError(w, http.StatusBadRequest, "commentId", "Comment ID is required", nil)
+	}
+	commentUUID, err := uuid.Parse(commentID)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "commentId", "Invalid CommentID", err)
+	}
+	cookie, err := r.Cookie("accessToken")
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "session", "Invalid session", err)
+		return
+	}
+	claims, err := auth.ValidateJWT(cookie.Value, h.cfg.GhostvoxSecretKey)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "session", "Invalid session", err)
+		return
+	}
+	userUUID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "session", "Invalid session", err)
+		return
+	}
+
+	err = h.cfg.Queries.DeleteComment(r.Context(), database.DeleteCommentParams{
+		ID: commentUUID, UserID: userUUID})
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "database", "Failed to delete comment", err)
+		return
+	}
+	respondWithJSON(w, http.StatusNoContent, nil)
 }

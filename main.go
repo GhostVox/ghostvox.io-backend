@@ -121,6 +121,8 @@ func main() {
 
 	mux.HandleFunc("POST /api/v1/polls/{pollId}/comments", mw.LoggingMiddleware(commentHandler.CreatePollComment))
 
+	mux.HandleFunc("DELETE /api/v1/polls/{pollId}/comments/{commentId}", mw.LoggingMiddleware(commentHandler.DeletePollComment))
+
 	mux.HandleFunc("DELETE /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.DeletePoll))
 	// End of poll routes
 	// OAuth routes
@@ -172,12 +174,12 @@ func main() {
 
 	if envConfig.Mode == "production" || envConfig.UseHTTPS == "true" {
 		// HTTPS mode
-		certFile := os.Getenv("CERT_FILE")
-		keyFile := os.Getenv("KEY_FILE")
+		certFile := os.Getenv("TLS_CERT_PATH")
+		keyFile := os.Getenv("TLS_KEY_PATH")
 
 		// Use default paths if not specified
 		if envConfig.CertFile == "" {
-			certFile = "./localhost+2.pem"
+			envConfig.CertFile = "./localhost+2.pem"
 		}
 		if envConfig.KeyFile == "" {
 			envConfig.KeyFile = "./localhost+2-key.pem"
