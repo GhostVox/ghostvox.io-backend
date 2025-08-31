@@ -4,7 +4,8 @@ import (
 	"log"
 	"os"
 	"time"
-	//"github.com/joho/godotenv"
+
+	"github.com/joho/godotenv"
 )
 
 // EnvConfig holds all environment configuration
@@ -26,17 +27,21 @@ type EnvConfig struct {
 	CronCheckExpiredPolls string
 	CertFile              string
 	KeyFile               string
+	AWSRegion             string
+	AWSBucket             string
+	AWSAccessKeyID        string
+	AWSSecretAccessKey    string
 }
 
 // LoadEnv loads environment variables and returns a config struct
 func LoadEnv() (*EnvConfig, error) {
 	// Load environment variables from .env file
-	//	err := godotenv.Load()
-	//	if err != nil {
-	//		log.Println("Error loading .env file")
-	//		// Continue anyway, as env vars might be set directly in the environment
-	//	}
-	//
+	err := godotenv.Load()
+	if err != nil {
+		log.Println("Error loading .env file")
+		// Continue anyway, as env vars might be set directly in the environment
+	}
+
 	// Define a helper function for required env vars
 	getRequiredEnv := func(key string) string {
 		val := os.Getenv(key)
@@ -53,7 +58,13 @@ func LoadEnv() (*EnvConfig, error) {
 	DB_USER := getRequiredEnv("DB_USER")
 	DB_PASSWORD := getRequiredEnv("DB_PASSWORD")
 
-	dbURL := "postgres://" + DB_USER + ":" + DB_PASSWORD + "@" + DB_HOST + ":" + DB_PORT + "/" + DB_NAME + "?sslmode=disable"
+	https := getRequiredEnv("USE_HTTPS")
+	var dbURL string
+	if https == "true" {
+		dbURL = "postgres://" + DB_USER + ":" + DB_PASSWORD + "@" + DB_HOST + ":" + DB_PORT + "/" + DB_NAME + "?sslmode=disable"
+	} else {
+		dbURL = getRequiredEnv("DATABASE_URL")
+	}
 	// Get all required env vars
 	platform := getRequiredEnv("PLATFORM")
 	secretKey := getRequiredEnv("GHOSTVOX_SECRET_KEY")
@@ -62,11 +73,17 @@ func LoadEnv() (*EnvConfig, error) {
 	googleClientID := getRequiredEnv("GOOGLE_CLIENT_ID")
 	googleClientSecret := getRequiredEnv("GOOGLE_CLIENT_SECRET")
 	googleRedirectURI := getRequiredEnv("GOOGLE_REDIRECT_URI")
+
 	githubClientID := getRequiredEnv("GITHUB_CLIENT_ID")
 	githubClientSecret := getRequiredEnv("GITHUB_CLIENT_SECRET")
 	githubRedirectURI := getRequiredEnv("GITHUB_REDIRECT_URI")
+
+	awsRegion := getRequiredEnv("AWS_REGION")
+	awsBucket := getRequiredEnv("AWS_S3_BUCKET")
+	awsAccessKeyID := getRequiredEnv("AWS_ACCESS_KEY_ID")
+	awsSecretAccessKey := getRequiredEnv("AWS_SECRET_ACCESS_KEY")
+
 	mode := getRequiredEnv("MODE")
-	https := getRequiredEnv("USE_HTTPS")
 	accessOrigin := getRequiredEnv("ACCESS_ORIGIN")
 	cronCheckExpiredPolls := getRequiredEnv("CRON_CHECK_FOR_EXPIRED_POLLS")
 
@@ -82,12 +99,12 @@ func LoadEnv() (*EnvConfig, error) {
 	}
 
 	// Get optional env vars with defaults
-	certFile := os.Getenv("TLS_CERT_PATH")
+	certFile := os.Getenv("CERT_FILE")
 	if certFile == "" {
 		certFile = "./localhost+2.pem"
 	}
 
-	keyFile := os.Getenv("TLS_KEY_PATH")
+	keyFile := os.Getenv("KEY_FILE")
 	if keyFile == "" {
 		keyFile = "./localhost+2-key.pem"
 	}
@@ -110,5 +127,9 @@ func LoadEnv() (*EnvConfig, error) {
 		CronCheckExpiredPolls: cronCheckExpiredPolls,
 		CertFile:              certFile,
 		KeyFile:               keyFile,
+		AWSRegion:             awsRegion,
+		AWSBucket:             awsBucket,
+		AWSAccessKeyID:        awsAccessKeyID,
+		AWSSecretAccessKey:    awsSecretAccessKey,
 	}, nil
 }

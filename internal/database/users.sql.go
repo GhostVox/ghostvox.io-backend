@@ -251,6 +251,39 @@ func (q *Queries) GetUsers(ctx context.Context) ([]User, error) {
 	return items, nil
 }
 
+const updateUserAvatar = `-- name: UpdateUserAvatar :one
+UPDATE users
+SET picture_url = $2,
+    updated_at = NOW()
+where id = $1
+RETURNING id, created_at, updated_at, user_name, email, first_name, last_name, hashed_password, provider, provider_id, role, picture_url
+`
+
+type UpdateUserAvatarParams struct {
+	ID         uuid.UUID
+	PictureUrl sql.NullString
+}
+
+func (q *Queries) UpdateUserAvatar(ctx context.Context, arg UpdateUserAvatarParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, updateUserAvatar, arg.ID, arg.PictureUrl)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.UserName,
+		&i.Email,
+		&i.FirstName,
+		&i.LastName,
+		&i.HashedPassword,
+		&i.Provider,
+		&i.ProviderID,
+		&i.Role,
+		&i.PictureUrl,
+	)
+	return i, err
+}
+
 const updateUserName = `-- name: UpdateUserName :one
 UPDATE
     users

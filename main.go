@@ -16,6 +16,8 @@ import (
 	"github.com/GhostVox/ghostvox.io-backend/internal/database"
 	"github.com/GhostVox/ghostvox.io-backend/internal/handlers"
 	mw "github.com/GhostVox/ghostvox.io-backend/internal/middleware"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	_ "github.com/lib/pq"
 
 	"golang.org/x/oauth2"
@@ -57,6 +59,7 @@ func main() {
 		Mode:              envConfig.Mode,
 		UseHTTPS:          envConfig.UseHTTPS,
 		AccessOrigin:      envConfig.AccessOrigin,
+		AwsS3Bucket:       envConfig.AWSBucket,
 	}
 
 	//Configure Cron
@@ -80,7 +83,17 @@ func main() {
 		},
 		Endpoint: github.Endpoint,
 	}
+
+	// 1. Load configuration, automatically finding region and credentials
+	awsCfg, err := awsconfig.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		log.Fatalf("unable to load SDK config, %v", err)
+	}
+
+	s3Client := s3.NewFromConfig(awsCfg)
+
 	// Initialize handlers
+
 	rootHandler := handlers.NewRootHandler(cfg)
 	pollHandler := handlers.NewPollHandler(cfg)
 	commentHandler := handlers.NewCommentHandler(cfg)
@@ -91,6 +104,7 @@ func main() {
 	googleHandler := handlers.NewGoogleHandler(cfg, googleOAuthConfig)
 	githubHandler := handlers.NewGithubHandler(cfg, githubOAuthConfig)
 	adminHandler := handlers.NewAdminHandler(cfg)
+	awsS3Handler := handlers.NewAWSS3Handler(cfg, s3Client)
 
 	mux := http.NewServeMux()
 
@@ -145,6 +159,7 @@ func main() {
 	// User public route ✅
 	mux.HandleFunc("GET /api/v1/users/stats", mw.LoggingMiddleware(userHandler.GetUserStats))
 	mux.HandleFunc("PUT /api/v1/users/profile", mw.LoggingMiddleware(userHandler.UpdateUser))
+	mux.HandleFunc("PUT /api/v1/users/profile/avatar", mw.LoggingMiddleware(awsS3Handler.UpdateUserAvatar))
 	mux.HandleFunc("POST /api/v1/users/username", mw.LoggingMiddleware(userHandler.AddUserName))
 
 	mux.HandleFunc("DELETE /api/v1/users/{userId}", mw.LoggingMiddleware(userHandler.DeleteUser))

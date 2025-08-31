@@ -18,6 +18,8 @@ type APIConfig struct {
 	Mode              string
 	UseHTTPS          string
 	AccessOrigin      string
+	AwsS3Bucket       string
+	AwsRegion         string
 }
 type OAuthUser struct {
 	Email        string `json:"email,omitempty"`

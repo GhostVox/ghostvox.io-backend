@@ -82,3 +82,11 @@ FROM
 WHERE
     user_name = $1
     ) as exists;
+
+
+-- name: UpdateUserAvatar :one
+UPDATE users
+SET picture_url = $2,
+    updated_at = NOW()
+where id = $1
+RETURNING *;
