@@ -29,12 +29,14 @@ type User struct {
 }
 
 type UserHandler struct {
-	cfg *config.APIConfig
+	cfg       *config.APIConfig
+	s3Handler *AWSS3Handler
 }
 
-func NewUserHandler(cfg *config.APIConfig) *UserHandler {
+func NewUserHandler(cfg *config.APIConfig, s3Handler *AWSS3Handler) *UserHandler {
 	return &UserHandler{
-		cfg: cfg,
+		cfg:       cfg,
+		s3Handler: s3Handler,
 	}
 }
 
@@ -83,7 +85,7 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
-	accessTokenCookie, err := r.Cookie("access_token")
+	accessTokenCookie, err := r.Cookie("accessToken")
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), "Missing access token", err)
 		return
@@ -109,10 +111,10 @@ func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal Server Error", err)
 		return
 	}
+	fmt.Println("Deleteing user, ", userUUID)
 
-	SetCookiesHelper(w, http.StatusOK, "", "", h.cfg)
-	respondWithJSON(w, http.StatusOK, map[string]interface{}{"msg": "User deleted successfully"})
-	return
+	h.s3Handler.DeleteUserAvatar(w, r)
+
 }
 
 func (h *UserHandler) GetUserStats(w http.ResponseWriter, r *http.Request) {

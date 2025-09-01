@@ -17,6 +17,7 @@ import (
 	"github.com/GhostVox/ghostvox.io-backend/internal/handlers"
 	mw "github.com/GhostVox/ghostvox.io-backend/internal/middleware"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	_ "github.com/lib/pq"
 
@@ -33,13 +34,13 @@ func main() {
 
 	envConfig, err := LoadEnv()
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Error loading environment variables: %v", err))
+		log.Fatalf("Error loading environment variables: %v", err)
 	}
 
 	//Connect to database
 	db, err := sql.Open("postgres", envConfig.DBURL)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Error connecting to database: %v", err))
+		log.Fatalf("Error connecting to database: %v", err)
 	}
 
 	//Connect database to sqlc code to get a pointer to queries to build handlers
@@ -60,6 +61,7 @@ func main() {
 		UseHTTPS:          envConfig.UseHTTPS,
 		AccessOrigin:      envConfig.AccessOrigin,
 		AwsS3Bucket:       envConfig.AWSBucket,
+		AwsRegion:         envConfig.AWSRegion,
 	}
 
 	//Configure Cron
@@ -84,8 +86,10 @@ func main() {
 		Endpoint: github.Endpoint,
 	}
 
+	credsProvider := credentials.NewStaticCredentialsProvider(envConfig.AWSAccessKeyID, envConfig.AWSSecretAccessKey, "")
+
 	// 1. Load configuration, automatically finding region and credentials
-	awsCfg, err := awsconfig.LoadDefaultConfig(context.TODO())
+	awsCfg, err := awsconfig.LoadDefaultConfig(context.TODO(), awsconfig.WithRegion(envConfig.AWSRegion), awsconfig.WithCredentialsProvider(credsProvider))
 	if err != nil {
 		log.Fatalf("unable to load SDK config, %v", err)
 	}
@@ -99,12 +103,12 @@ func main() {
 	commentHandler := handlers.NewCommentHandler(cfg)
 	voteHandler := handlers.NewVoteHandler(cfg)
 	optionHandler := handlers.NewOptionHandler(cfg)
-	userHandler := handlers.NewUserHandler(cfg)
 	authHandler := handlers.NewAuthHandler(cfg)
 	googleHandler := handlers.NewGoogleHandler(cfg, googleOAuthConfig)
 	githubHandler := handlers.NewGithubHandler(cfg, githubOAuthConfig)
 	adminHandler := handlers.NewAdminHandler(cfg)
 	awsS3Handler := handlers.NewAWSS3Handler(cfg, s3Client)
+	userHandler := handlers.NewUserHandler(cfg, awsS3Handler)
 
 	mux := http.NewServeMux()
 
@@ -156,13 +160,13 @@ func main() {
 
 	mux.HandleFunc("GET /api/v1/admin/users", mw.AdminRole(cfg, mw.LoggingMiddleware(adminHandler.GetAllUsers)).ServeHTTP)
 
-	// User public route ✅
+	// User public routes
 	mux.HandleFunc("GET /api/v1/users/stats", mw.LoggingMiddleware(userHandler.GetUserStats))
 	mux.HandleFunc("PUT /api/v1/users/profile", mw.LoggingMiddleware(userHandler.UpdateUser))
 	mux.HandleFunc("PUT /api/v1/users/profile/avatar", mw.LoggingMiddleware(awsS3Handler.UpdateUserAvatar))
 	mux.HandleFunc("POST /api/v1/users/username", mw.LoggingMiddleware(userHandler.AddUserName))
+	mux.HandleFunc("DELETE /api/v1/users/", mw.LoggingMiddleware(userHandler.DeleteUser))
 
-	mux.HandleFunc("DELETE /api/v1/users/{userId}", mw.LoggingMiddleware(userHandler.DeleteUser))
 	// End of users routes
 
 	// Options Routes
