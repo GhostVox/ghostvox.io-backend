@@ -28,18 +28,18 @@ func TestAdminRoleMiddleware(t *testing.T) {
 
 	t.Run("Valid Admin Token", func(t *testing.T) {
 		// Generate admin token
-		userID := uuid.New()
-		role := "admin"
-		picture := "https://example.com/avatar.jpg"
-		firstName := "John"
-		lastName := "Doe"
-		email := "john.doe@example.com"
 		duration := time.Duration(time.Hour * 24)
-		userName := "john.doe"
 
-		token, err := auth.GenerateJWTAccessToken(
-			userID, role, picture, firstName, lastName, userName, email,
-			apiConfig.GhostvoxSecretKey, duration)
+		claimsData := auth.TokenClaimsData{
+			UserID:    uuid.New(),
+			Role:      "admin",
+			Picture:   "https://example.com/avatar.jpg",
+			FirstName: "John",
+			LastName:  "Doe",
+			Email:     "john.doe@example.com",
+			UserName:  "john.doe",
+		}
+		token, err := auth.GenerateJWTAccessToken(claimsData, apiConfig.GhostvoxSecretKey, duration)
 		if err != nil {
 			t.Fatalf("Failed to generate token: %v", err)
 		}
@@ -68,17 +68,18 @@ func TestAdminRoleMiddleware(t *testing.T) {
 
 	t.Run("Non-Admin User Token", func(t *testing.T) {
 		// Generate non-admin token
-		userID := uuid.New()
-		role := "user" // Non-admin role
-		picture := "https://example.com/avatar.jpg"
-		firstName := "Regular"
-		lastName := "User"
-		email := "regular.user@example.com"
 		duration := time.Duration(3600 * time.Second)
-		userName := "regular.user"
 
-		token, err := auth.GenerateJWTAccessToken(
-			userID, role, picture, firstName, lastName, userName, email, apiConfig.GhostvoxSecretKey, duration)
+		claimsData := auth.TokenClaimsData{
+			UserID:    uuid.New(),
+			Role:      "user",
+			Picture:   "https://example.com/avatar.jpg",
+			FirstName: "John",
+			LastName:  "Doe",
+			Email:     "john.doe@example.com",
+			UserName:  "john.doe",
+		}
+		token, err := auth.GenerateJWTAccessToken(claimsData, apiConfig.GhostvoxSecretKey, duration)
 		if err != nil {
 			t.Fatalf("Failed to generate token: %v", err)
 		}

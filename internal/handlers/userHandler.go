@@ -74,7 +74,16 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accessToken, err := auth.GenerateJWTAccessToken(updatedUserRecord.ID, updatedUserRecord.Role, updatedUserRecord.PictureUrl.String, updatedUserRecord.FirstName, updatedUserRecord.LastName.String, updatedUserRecord.UserName.String, updatedUserRecord.Email, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
+	claimsData := auth.TokenClaimsData{
+		UserID:    updatedUserRecord.ID,
+		Role:      updatedUserRecord.Role,
+		Picture:   updatedUserRecord.PictureUrl.String,
+		FirstName: updatedUserRecord.FirstName,
+		LastName:  updatedUserRecord.LastName.String,
+		Email:     updatedUserRecord.Email,
+		UserName:  updatedUserRecord.UserName.String,
+	}
+	accessToken, err := auth.GenerateJWTAccessToken(claimsData, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Token Generation Failed", err)
 		return
@@ -209,7 +218,17 @@ func (h *UserHandler) AddUserName(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := auth.GenerateJWTAccessToken(userUUID, user.Email, user.PictureUrl.String, user.FirstName, user.LastName.String, user.Email, user.UserName.String, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
+	claimsData := auth.TokenClaimsData{
+		UserID:    user.ID,
+		Role:      user.Role,
+		Picture:   user.PictureUrl.String,
+		FirstName: user.FirstName,
+		LastName:  user.LastName.String,
+		Email:     user.Email,
+		UserName:  user.UserName.String,
+	}
+
+	token, err := auth.GenerateJWTAccessToken(claimsData, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal Server Error", err)
 		return

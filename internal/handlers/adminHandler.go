@@ -32,7 +32,6 @@ func (h *AdminHandler) GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondWithJSON(w, http.StatusOK, users)
-	return
 }
 
 func (h *AdminHandler) GetUser(w http.ResponseWriter, r *http.Request) {
@@ -53,5 +52,4 @@ func (h *AdminHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondWithJSON(w, http.StatusOK, user)
-	return
 }

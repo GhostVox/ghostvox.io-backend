@@ -39,18 +39,14 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = h.cfg.Queries.GetUserByEmail(r.Context(), user.Email)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			// Email doesn't exist, continue with registration
-			// We can proceed safely
-		} else {
-			// Some other database error occurred
-			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Failed to check if email exists", err)
-			return
-		}
-	} else {
-		// No error means the email exists
+	if err == nil {
+
 		respondWithError(w, http.StatusConflict, "email", "Email already exists", errors.New("Email already taken"))
+		return
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		// Some other database error occurred
+		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Failed to check if email exists", err)
 		return
 	}
 
@@ -67,15 +63,25 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	claimsData := auth.TokenClaimsData{
+		UserID:    userRecord.ID,
+		Role:      userRecord.Role,
+		Picture:   userRecord.PictureUrl.String,
+		FirstName: userRecord.FirstName,
+		LastName:  userRecord.LastName.String,
+		Email:     userRecord.Email,
+		UserName:  userRecord.UserName.String,
+	}
+
 	// Generate Access Token (JWT)
-	accessToken, err := auth.GenerateJWTAccessToken(userRecord.ID, userRecord.Role, userRecord.PictureUrl.String, userRecord.FirstName, userRecord.LastName.String, userRecord.Email, userRecord.UserName.String, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
+	accessToken, err := auth.GenerateJWTAccessToken(claimsData, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Access token generation failed", err)
 		return
 	}
 
 	SetCookiesHelper(w, http.StatusOK, refreshToken, accessToken, h.cfg)
-	respondWithJSON(w, http.StatusOK, map[string]interface{}{"msg": "User created successfully"})
+	respondWithJSON(w, http.StatusOK, map[string]any{"msg": "User created successfully"})
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -90,12 +96,12 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	userRecord, err := h.cfg.Queries.GetUserByEmail(r.Context(), login.Email)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "email", "Invalid email", err)
+		respondWithError(w, http.StatusUnauthorized, "Invalid_credential", "Invalid email or password", err)
 		return
 	}
 
 	if err := auth.VerifyPassword(userRecord.HashedPassword.String, login.Password); err != nil {
-		respondWithError(w, http.StatusUnauthorized, "password", "Invalid password", err)
+		respondWithError(w, http.StatusUnauthorized, "Invalid_credentials", "Invalid email or password", err)
 		return
 	}
 
@@ -105,15 +111,24 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	claimsData := auth.TokenClaimsData{
+		UserID:    userRecord.ID,
+		Role:      userRecord.Role,
+		Picture:   userRecord.PictureUrl.String,
+		FirstName: userRecord.FirstName,
+		LastName:  userRecord.LastName.String,
+		Email:     userRecord.Email,
+		UserName:  userRecord.UserName.String,
+	}
+
 	// Generate Access Token (JWT)
-	accessToken, err := auth.GenerateJWTAccessToken(userRecord.ID, userRecord.Role, userRecord.PictureUrl.String, userRecord.FirstName, userRecord.LastName.String, userRecord.Email,
-		userRecord.UserName.String, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
+	accessToken, err := auth.GenerateJWTAccessToken(claimsData, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Access token generation failed", err)
 		return
 	}
 	SetCookiesHelper(w, http.StatusOK, refreshToken, accessToken, h.cfg)
-	respondWithJSON(w, http.StatusOK, map[string]interface{}{"msg": "User logged in successfully"})
+	respondWithJSON(w, http.StatusOK, map[string]any{"msg": "User logged in successfully"})
 
 }
 
@@ -131,6 +146,7 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), "Invalid refresh token", err)
+			return
 		}
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Failed to get refresh token record", err)
 		return
@@ -144,8 +160,17 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	claimData := auth.TokenClaimsData{
+		UserID:    userRecord.ID,
+		Role:      userRecord.Role,
+		Picture:   userRecord.PictureUrl.String,
+		FirstName: userRecord.FirstName,
+		LastName:  userRecord.LastName.String,
+		Email:     userRecord.Email,
+		UserName:  userRecord.UserName.String,
+	}
 	// Generate New Access Token
-	accessToken, err := auth.GenerateJWTAccessToken(userRecord.ID, userRecord.Role, userRecord.PictureUrl.String, userRecord.FirstName, userRecord.LastName.String, userRecord.Email, userRecord.UserName.String, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
+	accessToken, err := auth.GenerateJWTAccessToken(claimData, h.cfg.GhostvoxSecretKey, h.cfg.AccessTokenExp)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Failed to generate access token", err)
 		return
@@ -166,7 +191,7 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	SetCookiesHelper(w, http.StatusOK, newRefreshRecord.Token, accessToken, h.cfg)
-	respondWithJSON(w, http.StatusOK, map[string]interface{}{"msg": "Refresh token updated successfully"})
+	respondWithJSON(w, http.StatusOK, map[string]any{"msg": "Refresh token updated successfully"})
 
 }
 
@@ -187,6 +212,6 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 
 	// Clear Cookie
 	SetCookiesHelper(w, http.StatusOK, "", "", h.cfg)
-	respondWithJSON(w, http.StatusOK, map[string]interface{}{"msg": "User logged out successfully"})
+	respondWithJSON(w, http.StatusOK, map[string]any{"msg": "User logged out successfully"})
 
 }

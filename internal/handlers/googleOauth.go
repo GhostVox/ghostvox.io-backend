@@ -146,8 +146,18 @@ func (gh *googleHandler) GoogleCallbackHandler(w http.ResponseWriter, r *http.Re
 		userRecord = existingUser
 		refreshTokenString = refreshToken
 	}
+
+	claimsData := auth.TokenClaimsData{
+		UserID:    userRecord.ID,
+		Role:      userRecord.Role,
+		Picture:   userRecord.PictureUrl.String,
+		FirstName: userRecord.FirstName,
+		LastName:  userRecord.LastName.String,
+		Email:     userRecord.Email,
+		UserName:  userRecord.UserName.String,
+	}
 	// Generate Access Token
-	accessToken, err := auth.GenerateJWTAccessToken(userRecord.ID, userRecord.Role, userRecord.PictureUrl.String, userRecord.FirstName, userRecord.LastName.String, userRecord.UserName.String, userRecord.Email, gh.cfg.GhostvoxSecretKey, gh.cfg.AccessTokenExp)
+	accessToken, err := auth.GenerateJWTAccessToken(claimsData, gh.cfg.GhostvoxSecretKey, gh.cfg.AccessTokenExp)
 	if err != nil {
 		http.Redirect(w, r, gh.cfg.AccessOrigin+"/sign-in?error=internal", http.StatusTemporaryRedirect)
 		return

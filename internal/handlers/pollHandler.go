@@ -450,7 +450,6 @@ func (h *pollHandler) GetUsersPolls(w http.ResponseWriter, r *http.Request) {
 		}
 		pollsResp[i] = p
 	}
-
 	respondWithJSON(w, http.StatusOK, pollsResp)
 
 }

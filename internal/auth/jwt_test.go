@@ -36,16 +36,19 @@ func TestParseAuthHeader(t *testing.T) {
 // Test for a valid JWT.
 func TestValidateJWT_Valid(t *testing.T) {
 	jwtSecret := "test_secret"
-	userID := uuid.New()
-	role := "admin"
-	picture := "https://example.com/avatar.jpg"
-	firstname := "John"
-	lastname := "Doe"
-	email := "john.doe@example.com"
-	userName := "john.doe"
+	claimsData := TokenClaimsData{
+		UserID:    uuid.New(),
+		Role:      "admin",
+		Picture:   "https://example.com/avatar.jpg",
+		FirstName: "John",
+		LastName:  "Doe",
+		Email:     "john.doe@example.com",
+		UserName:  "john.doe",
+	}
+	_ = claimsData
 
 	// Generate a token with a 15-minute expiration.
-	tokenStr, err := GenerateJWTAccessToken(userID, role, picture, firstname, lastname, userName, email, jwtSecret, 15*time.Minute)
+	tokenStr, err := GenerateJWTAccessToken(claimsData, jwtSecret, 15*time.Minute)
 	if err != nil {
 		t.Fatalf("unexpected error generating token: %v", err)
 	}
@@ -56,11 +59,11 @@ func TestValidateJWT_Valid(t *testing.T) {
 	}
 
 	// Verify the claims.
-	if claims.Subject != userID.String() {
-		t.Errorf("expected userID %s, got %s", userID.String(), claims.Subject)
+	if claims.Subject != claimsData.UserID.String() {
+		t.Errorf("expected userID %s, got %s", claimsData.UserID.String(), claims.Subject)
 	}
-	if claims.Role != role {
-		t.Errorf("expected role %s, got %s", role, claims.Role)
+	if claims.Role != claimsData.Role {
+		t.Errorf("expected role %s, got %s", claimsData.Role, claims.Role)
 	}
 	if claims.Issuer != "GhostVox" {
 		t.Errorf("expected issuer 'GhostVox', got %s", claims.Issuer)
@@ -70,16 +73,18 @@ func TestValidateJWT_Valid(t *testing.T) {
 // Test for an expired token.
 func TestValidateJWT_Expired(t *testing.T) {
 	jwtSecret := "test_secret"
-	userID := uuid.New()
-	role := "user"
-	picture := "https://example.com/avatar.jpg"
-	firstname := "John"
-	lastname := "Doe"
-	email := "john.doe@example.com"
-	userName := "john.doe"
+	claimsData := TokenClaimsData{
+		UserID:    uuid.New(),
+		Role:      "admin",
+		Picture:   "https://example.com/avatar.jpg",
+		FirstName: "John",
+		LastName:  "Doe",
+		Email:     "john.doe@example.com",
+		UserName:  "john.doe",
+	}
 
 	// Generate a token that expired 1 minute ago.
-	tokenStr, err := GenerateJWTAccessToken(userID, role, picture, firstname, lastname, userName, email, jwtSecret, -1*time.Minute)
+	tokenStr, err := GenerateJWTAccessToken(claimsData, jwtSecret, -1*time.Minute)
 	if err != nil {
 		t.Fatalf("unexpected error generating token: %v", err)
 	}
@@ -99,15 +104,17 @@ func TestValidateJWT_Expired(t *testing.T) {
 func TestValidateJWT_InvalidSecret(t *testing.T) {
 	jwtSecret := "correct_secret"
 	wrongSecret := "wrong_secret"
-	userID := uuid.New()
-	role := "user"
-	picture := "https://example.com/avatar.jpg"
-	firstname := "John"
-	lastname := "Doe"
-	email := "john.doe@example.com"
-	userName := "john.doe"
+	claimsData := TokenClaimsData{
+		UserID:    uuid.New(),
+		Role:      "admin",
+		Picture:   "https://example.com/avatar.jpg",
+		FirstName: "John",
+		LastName:  "Doe",
+		Email:     "john.doe@example.com",
+		UserName:  "john.doe",
+	}
 
-	tokenStr, err := GenerateJWTAccessToken(userID, role, picture, firstname, lastname, userName, email, jwtSecret, 15*time.Minute)
+	tokenStr, err := GenerateJWTAccessToken(claimsData, jwtSecret, 15*time.Minute)
 	if err != nil {
 		t.Fatalf("unexpected error generating token: %v", err)
 	}
@@ -149,23 +156,25 @@ func TestValidateJWT_UnexpectedSigningMethod(t *testing.T) {
 }
 func TestGenerateJWTAccessToken(t *testing.T) {
 	jwtSecret := "my_super_secret"
-	userID := uuid.New()
-	role := "admin"
 	accessTokenDuration := 15 * time.Minute
-	picture := "https://example.com/avatar.jpg"
-	firstname := "John"
-	lastname := "Doe"
-	email := "john.doe@example.com"
-	userName := "john.doe"
+	claimsData := TokenClaimsData{
+		UserID:    uuid.New(),
+		Role:      "admin",
+		Picture:   "https://example.com/avatar.jpg",
+		FirstName: "John",
+		LastName:  "Doe",
+		Email:     "john.doe@example.com",
+		UserName:  "john.doe",
+	}
 
-	tokenStr, err := GenerateJWTAccessToken(userID, role, picture, firstname, lastname, userName, email, jwtSecret, accessTokenDuration)
+	tokenStr, err := GenerateJWTAccessToken(claimsData, jwtSecret, accessTokenDuration)
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 
 	// Parse the token back to verify claims
 	claims := &CustomClaims{}
-	token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (any, error) {
 		// Validate the signing method is HMAC
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
@@ -178,16 +187,16 @@ func TestGenerateJWTAccessToken(t *testing.T) {
 	if !token.Valid {
 		t.Fatalf("expected token to be valid")
 	}
-	UserIDString := userID.String()
+	UserIDString := claimsData.UserID.String()
 	if err != nil {
 		t.Fatalf("error parsing userID: %v", err)
 	}
 	// Verify custom claims
 	if claims.Subject != UserIDString {
-		t.Errorf("expected userID %s, got %s", userID, claims.Subject)
+		t.Errorf("expected userID %s, got %s", claimsData.UserID, claims.Subject)
 	}
-	if claims.Role != role {
-		t.Errorf("expected role %s, got %s", role, claims.Role)
+	if claims.Role != claimsData.Role {
+		t.Errorf("expected role %s, got %s", claimsData.Role, claims.Role)
 	}
 	if claims.Issuer != "GhostVox" {
 		t.Errorf("expected issuer 'GhostVox', got %s", claims.Issuer)

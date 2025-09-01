@@ -10,6 +10,16 @@ import (
 	"github.com/google/uuid"
 )
 
+type TokenClaimsData struct {
+	UserID    uuid.UUID
+	Role      string
+	Picture   string
+	FirstName string
+	LastName  string
+	Email     string
+	UserName  string
+}
+
 type CustomClaims struct {
 	Role       string `json:"role"`
 	PictureUrl string `json:"picture_url"`
@@ -21,21 +31,21 @@ type CustomClaims struct {
 	jwt.RegisteredClaims
 }
 
-func GenerateJWTAccessToken(userID uuid.UUID, role, pictureUrl, firstName, lastName, email, userName string, jwtSecretKey string, AccessTokenExpiresAt time.Duration) (string, error) {
+func GenerateJWTAccessToken(claimsData TokenClaimsData, jwtSecretKey string, AccessTokenExpiresAt time.Duration) (string, error) {
 	claims := CustomClaims{
 
-		Role:       role,
-		PictureUrl: pictureUrl,
-		FirstName:  firstName,
-		LastName:   lastName,
-		Email:      email,
-		UserName:   userName,
+		Role:       claimsData.Role,
+		PictureUrl: claimsData.Picture,
+		FirstName:  claimsData.FirstName,
+		LastName:   claimsData.LastName,
+		Email:      claimsData.Email,
+		UserName:   claimsData.UserName,
 
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "GhostVox",
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(AccessTokenExpiresAt)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Subject:   userID.String(),
+			Subject:   claimsData.UserID.String(),
 		},
 	}
 
