@@ -96,6 +96,9 @@ func main() {
 
 	s3Client := s3.NewFromConfig(awsCfg)
 
+	// Create authorization middleware instance
+	authMiddleware := mw.Authenticator(cfg.GhostvoxSecretKey)
+
 	// Initialize handlers
 
 	rootHandler := handlers.NewRootHandler(cfg)
@@ -110,6 +113,21 @@ func main() {
 	awsS3Handler := handlers.NewAWSS3Handler(cfg, s3Client)
 	userHandler := handlers.NewUserHandler(cfg, awsS3Handler)
 
+	// Define Protected routes
+	updateUserAvatarHandler := mw.ProtectedHandler(awsS3Handler.UpdateUserAvatar)
+	createPollHandler := mw.ProtectedHandler(commentHandler.CreatePollComment)
+	deletePollHandler := mw.ProtectedHandler(commentHandler.DeletePollComment)
+	getFinishedPollsHandler := mw.ProtectedHandler(pollHandler.GetAllFinishedPolls)
+	getActivePollsHandler := mw.ProtectedHandler(pollHandler.GetAllActivePolls)
+	getRecentPollsHandler := mw.ProtectedHandler(pollHandler.GetRecentPolls)
+	updatePollHandler := mw.ProtectedHandler(pollHandler.UpdatePoll)
+	createPollHandler = mw.ProtectedHandler(pollHandler.CreatePoll)
+	getPollByIDHandler := mw.ProtectedHandler(pollHandler.GetPollByID)
+	getUserStatsHandler := mw.ProtectedHandler(userHandler.GetUserStats)
+	updateUserHandler := mw.ProtectedHandler(userHandler.UpdateUser)
+	addUserNameHandler := mw.ProtectedHandler(userHandler.AddUserName)
+	deleteUserHandler := mw.ProtectedHandler(userHandler.DeleteUser)
+
 	mux := http.NewServeMux()
 
 	wrappedMux := mw.CorsMiddleware(mux, envConfig.AccessOrigin)
@@ -120,26 +138,26 @@ func main() {
 	// Polls route ✅
 	mux.HandleFunc("GET /api/v1/polls", mw.LoggingMiddleware(pollHandler.GetAllPolls))
 
-	mux.HandleFunc("GET /api/v1/polls/finished", mw.LoggingMiddleware(pollHandler.GetAllFinishedPolls)) // in use
-	mux.HandleFunc("GET /api/v1/polls/active", mw.LoggingMiddleware(pollHandler.GetAllActivePolls))     // in use
+	mux.HandleFunc("GET /api/v1/polls/finished", mw.LoggingMiddleware(authMiddleware(getFinishedPollsHandler))) // in use
+	mux.HandleFunc("GET /api/v1/polls/active", mw.LoggingMiddleware(authMiddleware(getActivePollsHandler)))     // in use
 
-	mux.HandleFunc("GET /api/v1/polls/recent", mw.LoggingMiddleware(pollHandler.GetRecentPolls)) // in use
+	mux.HandleFunc("GET /api/v1/polls/recent", mw.LoggingMiddleware(authMiddleware(getRecentPollsHandler))) // in use
 
-	mux.HandleFunc("GET /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.GetPollByID)) // in use
+	mux.HandleFunc("GET /api/v1/polls/{pollId}", mw.LoggingMiddleware(authMiddleware(getPollByIDHandler))) // in use
 
 	mux.HandleFunc("GET /api/v1/polls/{pollId}/comments", mw.LoggingMiddleware(commentHandler.GetAllPollComments))
 
 	mux.HandleFunc("GET /api/v1/users/{userId}/polls", mw.LoggingMiddleware(pollHandler.GetUsersPolls)) // in use
 
-	mux.HandleFunc("PUT /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.UpdatePoll))
+	mux.HandleFunc("PUT /api/v1/polls/{pollId}", mw.LoggingMiddleware(authMiddleware(updatePollHandler)))
 
-	mux.HandleFunc("POST /api/v1/polls", mw.LoggingMiddleware(pollHandler.CreatePoll))
+	mux.HandleFunc("POST /api/v1/polls", mw.LoggingMiddleware(authMiddleware(createPollHandler))) // in use
 
 	mux.HandleFunc("POST /api/v1/polls/{pollId}/vote", mw.LoggingMiddleware(voteHandler.VoteOnPoll))
 
-	mux.HandleFunc("POST /api/v1/polls/{pollId}/comments", mw.LoggingMiddleware(commentHandler.CreatePollComment))
+	mux.HandleFunc("POST /api/v1/polls/{pollId}/comments", mw.LoggingMiddleware(authMiddleware(createPollHandler)))
 
-	mux.HandleFunc("DELETE /api/v1/polls/{pollId}/comments/{commentId}", mw.LoggingMiddleware(commentHandler.DeletePollComment))
+	mux.HandleFunc("DELETE /api/v1/polls/{pollId}/comments/{commentId}", mw.LoggingMiddleware(authMiddleware(deletePollHandler)))
 
 	mux.HandleFunc("DELETE /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.DeletePoll))
 	// End of poll routes
@@ -161,11 +179,11 @@ func main() {
 	mux.HandleFunc("GET /api/v1/admin/users", mw.AdminRole(cfg, mw.LoggingMiddleware(adminHandler.GetAllUsers)).ServeHTTP)
 
 	// User public routes
-	mux.HandleFunc("GET /api/v1/users/stats", mw.LoggingMiddleware(userHandler.GetUserStats))
-	mux.HandleFunc("PUT /api/v1/users/profile", mw.LoggingMiddleware(userHandler.UpdateUser))
-	mux.HandleFunc("PUT /api/v1/users/profile/avatar", mw.LoggingMiddleware(awsS3Handler.UpdateUserAvatar))
-	mux.HandleFunc("POST /api/v1/users/username", mw.LoggingMiddleware(userHandler.AddUserName))
-	mux.HandleFunc("DELETE /api/v1/users/", mw.LoggingMiddleware(userHandler.DeleteUser))
+	mux.HandleFunc("GET /api/v1/users/stats", mw.LoggingMiddleware(authMiddleware(getUserStatsHandler)))
+	mux.HandleFunc("PUT /api/v1/users/profile", mw.LoggingMiddleware(authMiddleware(updateUserHandler)))
+	mux.HandleFunc("PUT /api/v1/users/profile/avatar", mw.LoggingMiddleware(authMiddleware(updateUserAvatarHandler)))
+	mux.HandleFunc("POST /api/v1/users/username", mw.LoggingMiddleware(authMiddleware(addUserNameHandler)))
+	mux.HandleFunc("DELETE /api/v1/users/", mw.LoggingMiddleware(authMiddleware(deleteUserHandler)))
 
 	// End of users routes
 

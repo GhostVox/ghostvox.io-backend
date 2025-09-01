@@ -55,18 +55,7 @@ func (h *CommentHandler) GetAllPollComments(w http.ResponseWriter, r *http.Reque
 
 }
 
-func (h *CommentHandler) CreatePollComment(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie("accessToken")
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "session", "Invalid session", err)
-		return
-	}
-	claims, err := auth.ValidateJWT(cookie.Value, h.cfg.GhostvoxSecretKey)
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "session", "Invalid session", err)
-		return
-	}
-
+func (h *CommentHandler) CreatePollComment(w http.ResponseWriter, r *http.Request, claims *auth.CustomClaims) {
 	userUUID, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "session", "Invalid session", err)
@@ -120,7 +109,7 @@ func (h *CommentHandler) CreatePollComment(w http.ResponseWriter, r *http.Reques
 
 }
 
-func (h *CommentHandler) DeletePollComment(w http.ResponseWriter, r *http.Request) {
+func (h *CommentHandler) DeletePollComment(w http.ResponseWriter, r *http.Request, claims *auth.CustomClaims) {
 	// To be implemented
 	commentID := r.PathValue("commentId")
 	if commentID == "" {
@@ -130,16 +119,6 @@ func (h *CommentHandler) DeletePollComment(w http.ResponseWriter, r *http.Reques
 	commentUUID, err := uuid.Parse(commentID)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "commentId", "Invalid CommentID", err)
-	}
-	cookie, err := r.Cookie("accessToken")
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "session", "Invalid session", err)
-		return
-	}
-	claims, err := auth.ValidateJWT(cookie.Value, h.cfg.GhostvoxSecretKey)
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "session", "Invalid session", err)
-		return
 	}
 	userUUID, err := uuid.Parse(claims.Subject)
 	if err != nil {

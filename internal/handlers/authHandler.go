@@ -132,6 +132,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// NOTE: maybe refactor to use middleware
 func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	refreshCookie, err := r.Cookie("refreshToken")
 	if err != nil {

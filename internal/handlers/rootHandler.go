@@ -154,5 +154,4 @@ func (rh *RootHandler) HandleRoot(w http.ResponseWriter, r *http.Request) {
 			},
 		},
 	})
-	return
 }

@@ -63,10 +63,9 @@ func (h *pollHandler) GetAllPolls(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondWithJSON(w, http.StatusOK, polls)
-	return
 }
 
-func (h *pollHandler) GetPollByID(w http.ResponseWriter, r *http.Request) {
+func (h *pollHandler) GetPollByID(w http.ResponseWriter, r *http.Request, claims *auth.CustomClaims) {
 	id := r.PathValue("pollId")
 	if id == "" {
 		respondWithError(w, http.StatusBadRequest, "pollId", "Missing poll ID", nil)
@@ -75,17 +74,6 @@ func (h *pollHandler) GetPollByID(w http.ResponseWriter, r *http.Request) {
 	pollID, err := uuid.Parse(id)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "pollId", "Invalid poll ID", err)
-		return
-	}
-
-	cookie, err := r.Cookie("accessToken")
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "accessToken", "Missing access token", err)
-		return
-	}
-	claims, err := auth.ValidateJWT(cookie.Value, h.cfg.GhostvoxSecretKey)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), "Invalid access token", err)
 		return
 	}
 
@@ -115,7 +103,7 @@ func (h *pollHandler) GetPollByID(w http.ResponseWriter, r *http.Request) {
 		Status:      string(poll.Status),
 		Category:    poll.Category,
 		Options:     options,
-		DaysLeft:    int64(poll.Expiresat.Sub(time.Now()).Hours() / 24),
+		DaysLeft:    int64(time.Until(poll.Expiresat).Hours() / 24),
 		Votes:       poll.Votes,
 		Comments:    poll.Comments,
 		EndedAt:     poll.Expiresat,
@@ -123,21 +111,10 @@ func (h *pollHandler) GetPollByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondWithJSON(w, http.StatusOK, pollResponse)
-	return
 }
 
-func (h *pollHandler) CreatePoll(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie("accessToken")
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "accessToken", "Missing access token", err)
-		return
-	}
+func (h *pollHandler) CreatePoll(w http.ResponseWriter, r *http.Request, claims *auth.CustomClaims) {
 
-	claims, err := auth.ValidateJWT(cookie.Value, h.cfg.GhostvoxSecretKey)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "accessToken", "Invalid access token", err)
-		return
-	}
 	userUUID, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "accessToken", "Invalid access token", err)
@@ -160,23 +137,11 @@ func (h *pollHandler) CreatePoll(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusCreated, struct {
 		msg string
 	}{msg: http.StatusText(http.StatusOK)})
-	return
 }
 
-func (h *pollHandler) UpdatePoll(w http.ResponseWriter, r *http.Request) {
+func (h *pollHandler) UpdatePoll(w http.ResponseWriter, r *http.Request, claims *auth.CustomClaims) {
 	pollId := r.PathValue("pollId")
 
-	token, err := r.Cookie("accessToken")
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "accessToken", "Invalid access token", err)
-		return
-	}
-
-	claims, err := auth.ValidateJWT(token.Value, h.cfg.GhostvoxSecretKey)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "accessToken", "Invalid access token", err)
-		return
-	}
 	userUUID, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "accessToken", "Invalid access token", err)
@@ -223,7 +188,6 @@ func (h *pollHandler) UpdatePoll(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondWithJSON(w, http.StatusOK, pollRecord)
-	return
 }
 
 func (h *pollHandler) DeletePoll(w http.ResponseWriter, r *http.Request) {
@@ -250,10 +214,9 @@ func (h *pollHandler) DeletePoll(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	respondWithJSON(w, http.StatusNoContent, nil)
-	return
 }
 
-func (h *pollHandler) GetAllActivePolls(w http.ResponseWriter, r *http.Request) {
+func (h *pollHandler) GetAllActivePolls(w http.ResponseWriter, r *http.Request, claims *auth.CustomClaims) {
 	limit, offset, err := getLimitAndOffset(r)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid limit or offset", err)
@@ -263,17 +226,6 @@ func (h *pollHandler) GetAllActivePolls(w http.ResponseWriter, r *http.Request) 
 	category := r.URL.Query().Get("category")
 	if category == "" {
 		category = "%%"
-	}
-
-	cookie, err := r.Cookie("accessToken")
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid cookie", err)
-		return
-	}
-	claims, err := auth.ValidateJWT(cookie.Value, h.cfg.GhostvoxSecretKey)
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid cookie", err)
-		return
 	}
 
 	userUUID, err := uuid.Parse(claims.Subject)
@@ -309,7 +261,7 @@ func (h *pollHandler) GetAllActivePolls(w http.ResponseWriter, r *http.Request) 
 			Description: poll.Description,
 			Status:      string(poll.Status),
 			Category:    poll.Category,
-			DaysLeft:    int64(poll.Expiresat.Sub(time.Now()).Hours() / 24),
+			DaysLeft:    int64(time.Until(poll.Expiresat).Hours() / 24),
 			Options:     options,
 			Votes:       poll.Votes,
 			Comments:    poll.Comments,
@@ -324,7 +276,7 @@ func (h *pollHandler) GetAllActivePolls(w http.ResponseWriter, r *http.Request) 
 
 }
 
-func (h *pollHandler) GetAllFinishedPolls(w http.ResponseWriter, r *http.Request) {
+func (h *pollHandler) GetAllFinishedPolls(w http.ResponseWriter, r *http.Request, claims *auth.CustomClaims) {
 
 	limit, offset, err := getLimitAndOffset(r)
 	if err != nil {
@@ -335,17 +287,6 @@ func (h *pollHandler) GetAllFinishedPolls(w http.ResponseWriter, r *http.Request
 	category := r.URL.Query().Get("category")
 	if category == "" {
 		category = "%%"
-	}
-
-	cookie, err := r.Cookie("accessToken")
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid cookie", err)
-		return
-	}
-	claims, err := auth.ValidateJWT(cookie.Value, h.cfg.GhostvoxSecretKey)
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid cookie", err)
-		return
 	}
 
 	userUUID, err := uuid.Parse(claims.Subject)
@@ -381,7 +322,7 @@ func (h *pollHandler) GetAllFinishedPolls(w http.ResponseWriter, r *http.Request
 			Description: poll.Description,
 			Status:      string(poll.Status),
 			Category:    poll.Category,
-			DaysLeft:    int64(poll.Expiresat.Sub(time.Now()).Hours() / 24),
+			DaysLeft:    int64(time.Until(poll.Expiresat).Hours() / 24),
 			Options:     options,
 			Votes:       poll.Votes,
 			Comments:    poll.Comments,
@@ -441,7 +382,7 @@ func (h *pollHandler) GetUsersPolls(w http.ResponseWriter, r *http.Request) {
 			Description: poll.Description,
 			Status:      string(poll.Status),
 			Category:    poll.Category,
-			DaysLeft:    int64(poll.Expiresat.Sub(time.Now()).Hours() / 24),
+			DaysLeft:    int64(time.Until(poll.Expiresat).Hours() / 24),
 			Options:     options,
 			Votes:       poll.Votes,
 			Comments:    poll.Comments,
@@ -454,18 +395,7 @@ func (h *pollHandler) GetUsersPolls(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (h *pollHandler) GetRecentPolls(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie("accessToken")
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid cookie", err)
-		return
-	}
-
-	claims, err := auth.ValidateJWT(cookie.Value, h.cfg.GhostvoxSecretKey)
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid JWT", err)
-		return
-	}
+func (h *pollHandler) GetRecentPolls(w http.ResponseWriter, r *http.Request, claims *auth.CustomClaims) {
 
 	userID, err := uuid.Parse(claims.Subject)
 	if err != nil {
@@ -495,7 +425,7 @@ func (h *pollHandler) GetRecentPolls(w http.ResponseWriter, r *http.Request) {
 			Description: poll.Description,
 			Status:      string(poll.Status),
 			Category:    poll.Category,
-			DaysLeft:    int64(poll.Expiresat.Sub(time.Now()).Hours() / 24),
+			DaysLeft:    int64(time.Until(poll.Expiresat).Hours() / 24),
 			Options:     options,
 			Votes:       poll.Votes,
 			Comments:    poll.Comments,

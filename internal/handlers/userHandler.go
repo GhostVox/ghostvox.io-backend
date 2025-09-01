@@ -40,21 +40,11 @@ func NewUserHandler(cfg *config.APIConfig, s3Handler *AWSS3Handler) *UserHandler
 	}
 }
 
-func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
-	accessTokenCookie, err := r.Cookie("accessToken")
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), "Missing Access Token", err)
-		return
-	}
-	claims, err := auth.ValidateJWT(accessTokenCookie.Value, h.cfg.GhostvoxSecretKey)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), "Unauthorized", err)
-		return
-	}
+func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request, claims *auth.CustomClaims) {
 
 	var user User
 	defer r.Body.Close()
-	err = json.NewDecoder(r.Body).Decode(&user)
+	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal Server Error", err)
 		return
@@ -90,20 +80,10 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	SetCookiesHelper(w, http.StatusOK, refreshToken, accessToken, h.cfg)
-	respondWithJSON(w, http.StatusOK, map[string]interface{}{"msg": "User updated successfully"})
+	respondWithJSON(w, http.StatusOK, map[string]any{"msg": "User updated successfully"})
 }
 
-func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
-	accessTokenCookie, err := r.Cookie("accessToken")
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), "Missing access token", err)
-		return
-	}
-	claims, err := auth.ValidateJWT(accessTokenCookie.Value, h.cfg.GhostvoxSecretKey)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), "Unauthorized", err)
-		return
-	}
+func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request, claims *auth.CustomClaims) {
 
 	userUUID, err := uuid.Parse(claims.Subject)
 	if err != nil {
@@ -122,22 +102,11 @@ func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 	fmt.Println("Deleteing user, ", userUUID)
 
-	h.s3Handler.DeleteUserAvatar(w, r)
+	h.s3Handler.DeleteUserAvatar(w, r, claims)
 
 }
 
-func (h *UserHandler) GetUserStats(w http.ResponseWriter, r *http.Request) {
-	accessTokenCookie, err := r.Cookie("accessToken")
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), "Missing access token", err)
-		return
-	}
-	claims, err := auth.ValidateJWT(accessTokenCookie.Value, h.cfg.GhostvoxSecretKey)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), "Unauthorized", err)
-		return
-	}
-
+func (h *UserHandler) GetUserStats(w http.ResponseWriter, r *http.Request, claims *auth.CustomClaims) {
 	userUUID, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid user ID", err)
@@ -155,21 +124,9 @@ func (h *UserHandler) GetUserStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondWithJSON(w, http.StatusOK, stats)
-	return
 }
 
-func (h *UserHandler) AddUserName(w http.ResponseWriter, r *http.Request) {
-	accessTokenCookie, err := r.Cookie("accessToken")
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), "Missing access token", err)
-		return
-	}
-	claims, err := auth.ValidateJWT(accessTokenCookie.Value, h.cfg.GhostvoxSecretKey)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized), "Unauthorized", err)
-		return
-	}
-
+func (h *UserHandler) AddUserName(w http.ResponseWriter, r *http.Request, claims *auth.CustomClaims) {
 	userUUID, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid user ID", err)
@@ -252,5 +209,4 @@ func (h *UserHandler) AddUserName(w http.ResponseWriter, r *http.Request) {
 
 	SetCookiesHelper(w, http.StatusOK, refreshRecord.Token, token, h.cfg)
 	respondWithJSON(w, http.StatusOK, struct{ message string }{message: "User updated successfully"})
-	return
 }

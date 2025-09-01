@@ -27,18 +27,7 @@ func NewAWSS3Handler(cfg *config.APIConfig, s3Client *s3.Client) *AWSS3Handler {
 	}
 }
 
-func (h *AWSS3Handler) DeleteUserAvatar(w http.ResponseWriter, r *http.Request) {
-	// 1. AUTHENTICATION (This part is correct and remains the same)
-	accessToken, err := r.Cookie("accessToken")
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Access token", "Missing access token", err)
-		return
-	}
-	claims, err := auth.ValidateJWT(accessToken.Value, h.cfg.GhostvoxSecretKey)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Access token", "Invalid access token", err)
-		return
-	}
+func (h *AWSS3Handler) DeleteUserAvatar(w http.ResponseWriter, r *http.Request, claims *auth.CustomClaims) {
 	userUUID, err := uuid.Parse(claims.Subject)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Malformed token", "Invalid user ID in token", err)
@@ -85,19 +74,7 @@ func (h *AWSS3Handler) DeleteUserAvatar(w http.ResponseWriter, r *http.Request) 
 	respondWithJSON(w, http.StatusOK, map[string]string{"message": "Avatar deleted successfully."})
 }
 
-func (h *AWSS3Handler) UpdateUserAvatar(w http.ResponseWriter, r *http.Request) {
-	// 1. AUTHENTICATION (from your original code)
-	accessToken, err := r.Cookie("accessToken")
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Access token", "Missing access token", err)
-		return
-	}
-
-	claims, err := auth.ValidateJWT(accessToken.Value, h.cfg.GhostvoxSecretKey)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Access token", "Invalid access token", err)
-		return
-	}
+func (h *AWSS3Handler) UpdateUserAvatar(w http.ResponseWriter, r *http.Request, claims *auth.CustomClaims) {
 
 	userUUID, err := uuid.Parse(claims.Subject)
 	if err != nil {
@@ -123,7 +100,6 @@ func (h *AWSS3Handler) UpdateUserAvatar(w http.ResponseWriter, r *http.Request) 
 	ext := filepath.Ext(header.Filename)
 	objectKey := fmt.Sprintf("avatars/%s%s", userUUID.String(), ext)
 
-	fmt.Printf("bucket: %s, key: %s\n access_key: %s\n secret: %s\n ", h.cfg.AwsS3Bucket, objectKey)
 	// 4. UPLOAD TO S3
 	_, err = h.s3Client.PutObject(r.Context(), &s3.PutObjectInput{
 		Bucket: aws.String(h.cfg.AwsS3Bucket), // Assumes bucket name is in config
