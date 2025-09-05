@@ -24,3 +24,8 @@ RETURNING id;
 -- name: DeleteComment :exec
 DELETE FROM comments
 WHERE id = $1 AND user_id = $2;
+
+-- name: AdminDeleteComment :exec
+DELETE FROM comments
+WHERE id = $1;
+-- only for admin use

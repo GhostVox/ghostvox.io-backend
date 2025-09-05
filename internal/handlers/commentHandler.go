@@ -125,6 +125,16 @@ func (h *CommentHandler) DeletePollComment(w http.ResponseWriter, r *http.Reques
 		respondWithError(w, http.StatusBadRequest, "session", "Invalid session", err)
 		return
 	}
+	if claims.Role == "admin" {
+		err = h.cfg.Queries.AdminDeleteComment(r.Context(), commentUUID)
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "database", "Failed to delete comment", err)
+			return
+		}
+		respondWithJSON(w, http.StatusNoContent, nil)
+		return
+
+	}
 
 	err = h.cfg.Queries.DeleteComment(r.Context(), database.DeleteCommentParams{
 		ID: commentUUID, UserID: userUUID})

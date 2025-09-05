@@ -14,6 +14,16 @@ import (
 	"github.com/lib/pq"
 )
 
+const adminDeleteComment = `-- name: AdminDeleteComment :exec
+DELETE FROM comments
+WHERE id = $1
+`
+
+func (q *Queries) AdminDeleteComment(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, adminDeleteComment, id)
+	return err
+}
+
 const createComment = `-- name: CreateComment :one
 INSERT INTO comments (poll_id, user_id, content)
 VALUES ($1, $2, $3)

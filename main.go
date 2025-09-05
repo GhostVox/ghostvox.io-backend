@@ -115,13 +115,13 @@ func main() {
 
 	// Define Protected routes
 	updateUserAvatarHandler := mw.ProtectedHandler(awsS3Handler.UpdateUserAvatar)
-	createPollHandler := mw.ProtectedHandler(commentHandler.CreatePollComment)
+	createCommentHandler := mw.ProtectedHandler(commentHandler.CreatePollComment)
 	deletePollHandler := mw.ProtectedHandler(commentHandler.DeletePollComment)
 	getFinishedPollsHandler := mw.ProtectedHandler(pollHandler.GetAllFinishedPolls)
 	getActivePollsHandler := mw.ProtectedHandler(pollHandler.GetAllActivePolls)
 	getRecentPollsHandler := mw.ProtectedHandler(pollHandler.GetRecentPolls)
 	updatePollHandler := mw.ProtectedHandler(pollHandler.UpdatePoll)
-	createPollHandler = mw.ProtectedHandler(pollHandler.CreatePoll)
+	createPollHandler := mw.ProtectedHandler(pollHandler.CreatePoll)
 	getPollByIDHandler := mw.ProtectedHandler(pollHandler.GetPollByID)
 	getUserStatsHandler := mw.ProtectedHandler(userHandler.GetUserStats)
 	updateUserHandler := mw.ProtectedHandler(userHandler.UpdateUser)
@@ -155,7 +155,7 @@ func main() {
 
 	mux.HandleFunc("POST /api/v1/polls/{pollId}/vote", mw.LoggingMiddleware(voteHandler.VoteOnPoll))
 
-	mux.HandleFunc("POST /api/v1/polls/{pollId}/comments", mw.LoggingMiddleware(authMiddleware(createPollHandler)))
+	mux.HandleFunc("POST /api/v1/polls/{pollId}/comments", mw.LoggingMiddleware(authMiddleware(createCommentHandler)))
 
 	mux.HandleFunc("DELETE /api/v1/polls/{pollId}/comments/{commentId}", mw.LoggingMiddleware(authMiddleware(deletePollHandler)))
 
