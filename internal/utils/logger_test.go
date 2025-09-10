@@ -197,7 +197,7 @@ func TestConcurrency(t *testing.T) {
 	// Launch multiple goroutines writing error logs
 	for i := 0; i < numGoroutines; i++ {
 		go func(id int) {
-			_, err := logger.LogError(errors.New(fmt.Sprintf("error-%d", id)))
+			_, err := logger.LogError(fmt.Errorf("error-%d", id))
 			if err != nil {
 				t.Errorf("Concurrent LogError failed: %v", err)
 			}

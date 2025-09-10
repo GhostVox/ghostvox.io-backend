@@ -1,0 +1,52 @@
+name: Build and Deploy Ghostvox.io
+on:
+  push:
+    branches:
+      - main
+
+env:
+  FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+jobs:
+  # This job runs tests and other checks before a deployment.
+  build:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+
+      # It's good practice to set up the specific Go version you are using.
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.23" # Specify your Go version here
+
+      - name: Build binary
+        needs: [testj]
+        # The -v flag provides more verbose output during the build.
+        run: go build -v -o ghostvox-backend .
+
+      - name: Run tests
+        # The -v flag provides more verbose output for tests as well.
+        run: go test -v ./...
+
+  deploy:
+    name: Deploy to Fly.io
+    # This ensures the deploy job only runs if the 'build' job completes successfully.
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # This action installs and caches the flyctl CLI tool for use in the workflow.
+      - name: Set up Fly.io CLI
+        uses: superfly/flyctl-actions/setup-flyctl@v1.5
+
+      # This command deploys your application.
+      # It reads your fly.toml, builds the Docker image, pushes it to Fly's registry,
+      # and deploys the new release.
+      # The '--remote-only' flag tells Fly.io to use its remote builders, which is usually faster.
+      - name: Deploy application
+        run: flyctl deploy --remote-only

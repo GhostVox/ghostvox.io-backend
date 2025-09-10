@@ -24,6 +24,7 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
 	"golang.org/x/oauth2/google"
+	"golang.org/x/time/rate"
 )
 
 func main() {
@@ -99,6 +100,9 @@ func main() {
 	// Create authorization middleware instance
 	authMiddleware := mw.Authenticator(cfg.GhostvoxSecretKey)
 
+	rateLimiter := rate.NewLimiter(rate.Limit{
+		10,
+	}, 10)
 	// Initialize handlers
 
 	rootHandler := handlers.NewRootHandler(cfg)
