@@ -1,0 +1,868 @@
+openapi: 3.0.3
+info:
+  title: Ghostvox.io Backend API
+  version: 1.0.0
+  description: API for managing Ghostvox.io backend services.
+
+servers:
+  - url: https://example.com/api/v1
+
+tags:
+  - name: Polls
+    description: Operations about polls
+  - name: Authentication
+    description: User authentication and OAuth
+  - name: Users
+    description: User profile and management
+  - name: Comments
+    description: Operations on comments for polls
+  - name: Votes
+    description: Voting on poll options
+  - name: Admin
+    description: Administrative operations
+
+paths:
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterUserRequest"
+      responses:
+        "201":
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Email already exists
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Log in a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+        "401":
+          description: Invalid credentials
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Log out a user
+      responses:
+        "200":
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh the access token
+      responses:
+        "200":
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+        "401":
+          description: Invalid refresh token
+
+  /auth/google/login:
+    get:
+      tags:
+        - Authentication
+      summary: Initiate Google OAuth login
+      description: Redirects the user to the Google authentication page.
+      responses:
+        "307":
+          description: Temporary Redirect to Google's OAuth consent screen.
+
+  /auth/google/callback:
+    get:
+      tags:
+        - Authentication
+      summary: Handle Google OAuth callback
+      description: Handles the callback from Google after user authentication. On success, it sets auth cookies and redirects to the frontend.
+      responses:
+        "307":
+          description: Temporary Redirect to the frontend application.
+
+  /auth/github/login:
+    get:
+      tags:
+        - Authentication
+      summary: Initiate GitHub OAuth login
+      description: Redirects the user to the GitHub authentication page.
+      responses:
+        "307":
+          description: Temporary Redirect to GitHub's OAuth consent screen.
+
+  /auth/github/callback:
+    get:
+      tags:
+        - Authentication
+      summary: Handle GitHub OAuth callback
+      description: Handles the callback from GitHub after user authentication. On success, it sets auth cookies and redirects to the frontend.
+      responses:
+        "307":
+          description: Temporary Redirect to the frontend application.
+
+  /polls:
+    get:
+      tags:
+        - Polls
+      summary: Retrieve a list of all polls (unprotected)
+      responses:
+        "200":
+          description: A list of all polls
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PollResponse"
+    post:
+      tags:
+        - Polls
+      summary: Create a new poll
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePollRequest"
+      responses:
+        "201":
+          description: Poll created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PollResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /polls/finished:
+    get:
+      tags:
+        - Polls
+      summary: Retrieve a list of finished polls
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: A list of finished polls
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PollResponse"
+
+  /polls/active:
+    get:
+      tags:
+        - Polls
+      summary: Retrieve a list of active polls
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: A list of active polls
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PollResponse"
+
+  /polls/recent:
+    get:
+      tags:
+        - Polls
+      summary: Retrieve a list of recent polls
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: A list of recent polls
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PollResponse"
+
+  /polls/{pollId}:
+    get:
+      tags:
+        - Polls
+      summary: Retrieve a specific poll
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: pollId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: A specific poll
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PollResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags:
+        - Polls
+      summary: Update a specific poll
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: pollId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePollRequest" # Reusing CreatePollRequest for updates
+      responses:
+        "200":
+          description: Poll updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PollResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags:
+        - Polls
+      summary: Delete a specific poll
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: pollId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Poll deleted successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /polls/{pollId}/comments:
+    get:
+      tags:
+        - Comments
+      summary: Retrieve comments for a specific poll
+      parameters:
+        - name: pollId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Comments for a specific poll
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CommentResponse"
+    post:
+      tags:
+        - Comments
+      summary: Create a comment on a poll
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: pollId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCommentRequest"
+      responses:
+        "201":
+          description: Comment created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommentResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /polls/{pollId}/comments/{commentId}:
+    delete:
+      tags:
+        - Comments
+      summary: Delete a comment
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: pollId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Comment deleted successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /polls/{pollId}/vote:
+    post:
+      tags:
+        - Votes
+      summary: Vote on a poll option
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: pollId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVoteRequest"
+      responses:
+        "201":
+          description: Vote cast successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PollResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /polls/{pollId}/options/{optionId}:
+    delete:
+      tags:
+        - Polls
+      summary: Delete a poll option
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: pollId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: optionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Option deleted successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /users/profile:
+    put:
+      tags:
+        - Users
+      summary: Update current user's profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    delete:
+      tags:
+        - Users
+      summary: Delete current user's account
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: User deleted successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /users/profile/avatar:
+    put:
+      tags:
+        - Users
+      summary: Update current user's avatar
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: The image file to upload.
+      responses:
+        "200":
+          description: Avatar updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvatarURLResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /users/stats:
+    get:
+      tags:
+        - Users
+      summary: Get statistics for the current user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserStatsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /users/username:
+    post:
+      tags:
+        - Users
+      summary: Set or update the current user's username
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUsernameRequest"
+      responses:
+        "200":
+          description: Username updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessMessage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Username already exists
+
+  /users/{userId}/polls:
+    get:
+      tags:
+        - Users
+      summary: Retrieve polls created by a specific user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Polls created by a specific user
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PollResponse"
+
+  /admin/users:
+    get:
+      tags:
+        - Admin
+      summary: Get all users
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: A list of all users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /admin/users/{userId}:
+    get:
+      tags:
+        - Admin
+      summary: Get a single user by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: A single user object
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: Unauthorized
+    Forbidden:
+      description: Forbidden
+    NotFound:
+      description: Not Found
+
+  schemas:
+    PollResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        creator:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+        category:
+          type: string
+        daysLeft:
+          type: integer
+          format: int64
+        options:
+          type: array
+          items:
+            $ref: "#/components/schemas/Option"
+        votes:
+          type: integer
+          format: int64
+        comments:
+          type: integer
+          format: int64
+        endedAt:
+          type: string
+          format: date-time
+        winner:
+          type: string
+        userVote:
+          type: string
+          format: uuid
+          nullable: true
+
+    CommentResponse:
+      type: object
+      properties:
+        ID:
+          type: string
+          description: The unique identifier for the comment.
+        UserID:
+          type: string
+          description: The unique identifier of the user who posted the comment.
+        Username:
+          type: string
+          nullable: true
+          description: The username of the commenter. Can be null if the user is anonymous or deleted.
+        AvatarUrl:
+          type: string
+          nullable: true
+          description: The URL to the user's avatar. Can be null.
+        Content:
+          type: string
+          description: The text content of the comment.
+        CreatedAt:
+          type: string
+          description: The timestamp when the comment was created.
+          example: "2025-09-11T17:02:00Z"
+
+    CreatePollRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          description: The title of the poll.
+          example: "What's your favorite programming language?"
+        description:
+          type: string
+          description: A detailed description of the poll.
+          example: "We want to know which language our community loves the most."
+        category:
+          type: string
+          description: The category this poll belongs to.
+          example: "Technology"
+        expiresAt:
+          type: string
+          format: date-time
+          description: The date and time when the poll will automatically close.
+          example: "2025-10-11T17:00:00Z"
+        status:
+          type: string
+          description: The initial status of the poll.
+          example: "draft"
+        options:
+          type: array
+          description: A list of options for the poll.
+          items:
+            $ref: "#/components/schemas/CreateOption"
+
+    CreateOption:
+      type: object
+      properties:
+        text:
+          type: string
+          description: The text content of a single poll option.
+          example: "Go"
+
+    Option:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        text:
+          type: string
+        votes:
+          type: integer
+
+    RegisterUserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        first_name:
+          type: string
+        last_name:
+          type: string
+        password:
+          type: string
+          format: password
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+
+    SuccessMessage:
+      type: object
+      properties:
+        msg:
+          type: string
+
+    UserStatsResponse:
+      type: object
+      properties:
+        total_polls:
+          type: integer
+        total_comments:
+          type: integer
+        total_votes:
+          type: integer
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        first_name:
+          type: string
+        last_name:
+          type: string
+        user_name:
+          type: string
+
+    UpdateUsernameRequest:
+      type: object
+      properties:
+        username:
+          type: string
+
+    AvatarURLResponse:
+      type: object
+      properties:
+        avatar_url:
+          type: string
+          format: uri
+
+    UserResponse:
+      type: object
+      properties:
+        ID:
+          type: string
+          format: uuid
+        CreatedAt:
+          type: string
+          format: date-time
+        UpdatedAt:
+          type: string
+          format: date-time
+        UserName:
+          type: string
+          nullable: true
+        Email:
+          type: string
+          format: email
+        FirstName:
+          type: string
+        LastName:
+          type: string
+          nullable: true
+        Provider:
+          type: string
+          nullable: true
+        ProviderID:
+          type: string
+          nullable: true
+        Role:
+          type: string
+        PictureUrl:
+          type: string
+          format: uri
+          nullable: true
+
+    CreateVoteRequest:
+      type: object
+      properties:
+        optionId:
+          type: string
+          format: uuid
+
+    CreateCommentRequest:
+      type: object
+      properties:
+        content:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        errors:
+          type: object
+          additionalProperties:
+            type: string

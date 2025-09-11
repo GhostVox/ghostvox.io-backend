@@ -1,480 +1,234 @@
 # Ghostvox Backend RESTful API
 
-This is the backend for the **Ghostvox app**. It is a RESTful API built using Go, hosted on Fly.io with a PostgreSQL database. The API handles storage and retrieval of polls and their associated data for the Ghostvox app.
+A production-intent RESTful API written in Go that powers the Ghostvox application. It exposes endpoints for managing polls and related domain data. The service is containerized, deployable on Fly.io, and persists data in PostgreSQL.
 
-## API Endpoints
+## Table of Contents
+- [Key Features](#key-features)
+- [Architecture Overview](#architecture-overview)
+- [OpenAPI Specification](#openapi-specification)
+- [Authentication & Authorization](#authentication--authorization)
+- [Error Handling](#error-handling)
+- [Local Development](#local-development)
+- [Local HTTPS & OAuth](#local-https--oauth)
+- [Environment Variables](#environment-variables)
+- [Running with Docker](#running-with-docker)
+- [Deployment (Fly.io)](#deployment-flyio)
+- [Database & Data Integrity](#database--data-integrity)
+- [Example Requests](#example-requests)
+- [Project Structure (High-Level)](#project-structure-high-level)
+- [Contributing](#contributing)
+- [License](#license)
 
-### Authentication Endpoints
+## Key Features
+- Go-based RESTful API
+- PostgreSQL persistence
+- JWT-based auth (access + refresh tokens)
+- Secure HTTP-only cookie storage for auth tokens
+- Role-Based Access Control (admin-only endpoints)
+- Google & GitHub OAuth integration
+- OpenAPI spec (`openapi_spec.yaml`) as the single source of truth
+- Transactional integrity for critical operations (e.g. user creation, token workflows)
+- Consistent, machine- & human-friendly error format
+- Docker & Docker Compose for reproducible environments
+- Designed for Fly.io deployment
 
-#### 🚀 Register User
-- **Route:** `POST /api/v1/auth/register`
-- **Request:**
-  ```json
-  {
-    "email": "john@example.com",
-    "first_name": "John",
-    "last_name": "Smith",
-    "password": "yourpassword",
-    "provider": "",
-    "provider_id": "",
-    "role": "user"
-  }
-  ```
-- **Response (201 Created):**
-  - **Cookies Set:**
-    - `accessToken`: A short-lived JWT stored as an HTTP-only cookie and also returned in the Authorization header as Bearer <token>.
-    - `refreshToken`: A long-lived refresh token stored as an HTTP-only cookie.
-  - **Response Body:**
-    ```json
-    {
-      "message": "User created successfully"
-    }
-    ```
-- **Error Response:**
-  ```json
-  {
-    "errors": {
-      "field": "Error message for this specific field"
-    }
-  }
-  ```
+## Architecture Overview
+The service follows conventional Go layering:
 
-#### 🔑 Login
-- **Route:** `POST /api/v1/auth/login`
-- **Request:**
-  ```json
-  {
-    "email": "john@example.com",
-    "password": "yourpassword"
-  }
-  ```
-- **Response (201 Created):**
-  - **Cookies Set:**
-    - `accessToken`: A short-lived JWT stored as an HTTP-only cookie and also returned in the Authorization header as Bearer <token>.
-    - `refreshToken`: A long-lived refresh token stored as an HTTP-only cookie.
-  - **Response Body:**
-    ```json
-    {
-      "message": "User created successfully"
-    }
-    ```
-- **Error Response:**
-  ```json
-  {
-    "errors": {
-      "email": "Invalid credentials"
-    }
-  }
-  ```
+1. Transport / HTTP handlers
+2. Service / business logic
+3. Data access (repositories) backed by PostgreSQL
+4. Cross-cutting: auth, validation, config, logging
 
-#### 🔄 Refresh Token
-- **Route:** `POST /api/v1/auth/refresh`
-- **Request:** No body needed (uses HTTP-only cookie)
-- **Response (201 Created):**
-  - **Cookies Set:**
-    - New `accessToken` and `refreshToken` are issued as HTTP-only cookies.
-  - **Response Body:**
-    ```json
-    {
-      "message": "User created successfully"
-    }
-    ```
+The OpenAPI document drives:
+- Contract-first design
+- Documentation & interactive exploration
+- Potential future code generation (clients / mocks)
 
-#### 🚪 Logout
-- **Route:** `POST /api/v1/auth/logout`
-- **Request:** No body needed (uses HTTP-only cookie)
-- **Response (200 OK):**
-  - **Cookies:** Clears authentication cookies
-  - **Response Body:**
-    ```json
-    {
-      "message": "User logged out successfully"
-    }
-    ```
+## OpenAPI Specification
+The source of truth for all endpoints is `openapi_spec.yaml` located at the repository root.
 
-#### 🔑 Google OAuth Login
-- **Route:** `GET /api/v1/auth/google/login`
-- **Response:** Redirects to Google authentication
+### Viewing the Specification
+1. Open `openapi_spec.yaml`
+2. Copy all contents
+3. Visit https://editor.swagger.io/
+4. Paste into the editor for an interactive UI
 
-#### 🔑 Google OAuth Callback
-- **Route:** `GET /api/v1/auth/google/callback`
-- **Response (201 Created):**
-  - **Cookies Set:**
-    - `accessToken` and `refreshToken` are issued as HTTP-only cookies.
-  - **Response Body:**
-    ```json
-    {
-      "message": "User created successfully"
-    }
-    ```
+Avoid documenting endpoints manually in this README to prevent drift—update the spec instead.
 
-### User Endpoints
+## Authentication & Authorization
+- Authentication uses short-lived Access Tokens and longer-lived Refresh Tokens
+- Both tokens are issued as signed JWTs
+- Tokens are stored in secure HTTP-only cookies to mitigate XSS access
+- Admin-only endpoints enforce role checks
+- OAuth providers (Google, GitHub) supported (requires HTTPS redirect URIs)
 
-#### 🔍 Get All Users (Admin only)
-- **Route:** `GET /api/v1/admin/users`
-- **Response (200 OK):**
-  ```json
-  [
-    {
-      "id": "1",
-      "email": "john@example.com",
-      "first_name": "John",
-      "last_name": "Smith",
-      "role": "user",
-      "created_at": "2023-01-01T00:00:00Z",
-      "updated_at": "2023-01-01T00:00:00Z"
-    },
-    {
-      "id": "2",
-      "email": "jane@example.com",
-      "first_name": "Jane",
-      "last_name": "Doe",
-      "role": "admin",
-      "created_at": "2023-01-01T00:00:00Z",
-      "updated_at": "2023-01-01T00:00:00Z"
-    }
-  ]
-  ```
+(If you need exact cookie names, expiration durations, or claim structure, inspect the implementation or OpenAPI schema—they are intentionally not duplicated here to keep a single source of truth.)
 
-#### 🔍 Get Single User (Admin only)
-- **Route:** `GET /api/v1/admin/users/{id}`
-- **Response (200 OK):**
-  ```json
-  {
-    "id": "1",
-    "email": "john@example.com",
-    "first_name": "John",
-    "last_name": "Smith",
-    "role": "user",
-    "created_at": "2023-01-01T00:00:00Z",
-    "updated_at": "2023-01-01T00:00:00Z"
-  }
-  ```
-
-#### ✏️ Update User
-- **Route:** `PUT /api/v1/users/{id}`
-- **Request:**
-  ```json
-  {
-    "email": "john@example.com",
-    "first_name": "John",
-    "last_name": "Smith",
-    "password": "newpassword",
-    "provider": "",
-    "provider_id": "",
-    "role": "user"
-  }
-  ```
-- **Response (200 OK):**
-  - **Cookies Set:** New `accessToken` and `refreshToken` are issued as HTTP-only cookies, and the access token is included in the Authorization header.
-  - **Response Body:**
-    ```json
-    {
-      "message": "User created successfully"
-    }
-    ```
-
-#### ❌ Delete User
-- **Route:** `DELETE /api/v1/users/{id}`
-- **Response (204 No Content)**
-
-### Poll Endpoints
-
-#### 🚀 Create Poll
-- **Route:** `POST /api/v1/polls`
-- **Request:**
-  ```json
-  {
-    "userId": "user123",
-    "title": "Sample Poll",
-    "description": "This is a sample poll description",
-    "expiresAt": "2024-12-31T23:59:59Z",
-    "status": "Active"
-  }
-  ```
-- **Response (201 Created):**
-  ```json
-  {
-    "id": "poll-uuid",
-    "userId": "user123",
-    "title": "Sample Poll",
-    "description": "This is a sample poll description",
-    "created_at": "2023-05-01T10:00:00Z",
-    "updated_at": "2023-05-01T10:00:00Z",
-    "expiresAt": "2024-12-31T23:59:59Z",
-    "status": "Active"
-  }
-  ```
-
-#### 🔍 Get Poll
-- **Route:** `GET /api/v1/polls/{id}`
-- **Response (200 OK):**
-  ```json
-  {
-    "id": "poll-uuid",
-    "userId": "user123",
-    "title": "Sample Poll",
-    "description": "This is a sample poll description",
-    "created_at": "2023-05-01T10:00:00Z",
-    "updated_at": "2023-05-01T10:00:00Z",
-    "expiresAt": "2024-12-31T23:59:59Z",
-    "status": "Active"
-  }
-  ```
-
-#### 🔍 Get All Polls
-- **Route:** `GET /api/v1/polls`
-- **Response (200 OK):**
-  ```json
-  [
-    {
-      "id": "poll-uuid-1",
-      "userId": "user123",
-      "title": "Sample Poll",
-      "description": "This is a sample poll description",
-      "created_at": "2023-05-01T10:00:00Z",
-      "updated_at": "2023-05-01T10:00:00Z",
-      "expiresAt": "2024-12-31T23:59:59Z",
-      "status": "Active"
-    },
-    {
-      "id": "poll-uuid-2",
-      "userId": "user123",
-      "title": "Another Sample Poll",
-      "description": "This is another sample poll description",
-      "created_at": "2023-05-02T10:00:00Z",
-      "updated_at": "2023-05-02T10:00:00Z",
-      "expiresAt": "2024-12-31T23:59:59Z",
-      "status": "Active"
-    }
-  ]
-  ```
-
-#### ✏️ Update Poll
-- **Route:** `PUT /api/v1/polls/{id}`
-- **Request:**
-  ```json
-  {
-    "userId": "user123",
-    "title": "Updated Poll",
-    "description": "This is an updated poll description",
-    "expiresAt": "2024-12-31T23:59:59Z",
-    "status": "Inactive"
-  }
-  ```
-- **Response (200 OK):**
-  ```json
-  {
-    "id": "poll-uuid",
-    "userId": "user123",
-    "title": "Updated Poll",
-    "description": "This is an updated poll description",
-    "created_at": "2023-05-01T10:00:00Z",
-    "updated_at": "2023-05-03T15:30:00Z",
-    "expiresAt": "2024-12-31T23:59:59Z",
-    "status": "Inactive"
-  }
-  ```
-
-#### ❌ Delete Poll
-- **Route:** `DELETE /api/v1/polls/{id}`
-- **Response (204 No Content)**
-
-### Poll Option Endpoints
-
-#### 🚀 Create Options
-- **Route:** `POST /api/v1/polls/{pollId}/options`
-- **Request:**
-  ```json
-  {
-    "options": [
-      {
-        "name": "Option 1",
-        "value": "Value 1"
-      },
-      {
-        "name": "Option 2",
-        "value": "Value 2"
-      }
-    ]
-  }
-  ```
-- **Response (201 Created):**
-  ```json
-  [
-    {
-      "id": "option-uuid-1",
-      "name": "Option 1",
-      "value": "Value 1",
-      "poll_id": "poll-uuid",
-      "created_at": "2023-05-01T10:10:00Z",
-      "updated_at": "2023-05-01T10:10:00Z"
-    },
-    {
-      "id": "option-uuid-2",
-      "name": "Option 2",
-      "value": "Value 2",
-      "poll_id": "poll-uuid",
-      "created_at": "2023-05-01T10:10:00Z",
-      "updated_at": "2023-05-01T10:10:00Z"
-    }
-  ]
-  ```
-
-#### 🔍 Get Option
-- **Route:** `GET /api/v1/polls/{pollId}/options/{optionId}`
-- **Response (200 OK):**
-  ```json
-  {
-    "id": "option-uuid",
-    "name": "Option 1",
-    "value": "Value 1",
-    "poll_id": "poll-uuid",
-    "created_at": "2023-05-01T10:10:00Z",
-    "updated_at": "2023-05-01T10:10:00Z"
-  }
-  ```
-
-#### 🔍 Get All Options for Poll
-- **Route:** `GET /api/v1/polls/{pollId}/options`
-- **Response (200 OK):**
-  ```json
-  [
-    {
-      "id": "option-uuid-1",
-      "name": "Option 1",
-      "value": "Value 1",
-      "poll_id": "poll-uuid",
-      "created_at": "2023-05-01T10:10:00Z",
-      "updated_at": "2023-05-01T10:10:00Z"
-    },
-    {
-      "id": "option-uuid-2",
-      "name": "Option 2",
-      "value": "Value 2",
-      "poll_id": "poll-uuid",
-      "created_at": "2023-05-01T10:10:00Z",
-      "updated_at": "2023-05-01T10:10:00Z"
-    }
-  ]
-  ```
-
-#### ✏️ Update Option
-- **Route:** `PUT /api/v1/polls/{pollId}/options/{optionId}`
-- **Request:**
-  ```json
-  {
-    "id": "option-uuid",
-    "name": "Updated Option",
-    "value": "Updated Value"
-  }
-  ```
-- **Response (200 OK):**
-  ```json
-  {
-    "id": "option-uuid",
-    "name": "Updated Option",
-    "value": "Updated Value",
-    "poll_id": "poll-uuid",
-    "created_at": "2023-05-01T10:10:00Z",
-    "updated_at": "2023-05-03T16:20:00Z"
-  }
-  ```
-
-#### ❌ Delete Option
-- **Route:** `DELETE /api/v1/polls/{pollId}/options/{optionId}`
-- **Response (204 No Content)**
-
-### Vote Endpoints
-
-#### 🚀 Create Vote
-- **Route:** `POST /api/v1/polls/{pollId}/votes`
-- **Request:**
-  ```json
-  {
-    "userId": "user123",
-    "optionId": "option-uuid"
-  }
-  ```
-- **Response (201 Created):**
-  ```json
-  {
-    "id": "vote-uuid",
-    "pollId": "poll-uuid",
-    "optionId": "option-uuid",
-    "userId": "user123",
-    "created_at": "2023-05-01T11:00:00Z"
-  }
-  ```
-
-#### 🔍 Get Votes by Poll
-- **Route:** `GET /api/v1/polls/{pollId}/votes`
-- **Response (200 OK):**
-  ```json
-  [
-    {
-      "id": "vote-uuid-1",
-      "pollId": "poll-uuid",
-      "optionId": "option-uuid-1",
-      "userId": "user123",
-      "created_at": "2023-05-01T11:00:00Z"
-    },
-    {
-      "id": "vote-uuid-2",
-      "pollId": "poll-uuid",
-      "optionId": "option-uuid-2",
-      "userId": "user456",
-      "created_at": "2023-05-01T11:30:00Z"
-    }
-  ]
-  ```
-
-#### ❌ Delete Vote
-- **Route:** `DELETE /api/v1/votes/{voteId}`
-- **Response (204 No Content)**
-
-## Technical Notes
-
-- **Authentication:** The API uses JWT tokens for authentication, with both access and refresh tokens.
-- **Cookie Security:** Authentication tokens are stored as HTTP-only cookies with appropriate security settings.
-- **Database:** The API uses PostgreSQL with foreign key constraints and cascading deletes.
-- **Transaction Support:** Critical operations like user creation and token management use database transactions to ensure data consistency.
-- **Role-Based Access Control:** Certain endpoints are restricted to admin users.
-- **OAuth Integration:** Google OAuth is supported for authentication.
+### Typical Flow
+1. User authenticates (credentials or OAuth)
+2. Server sets access + refresh token cookies
+3. Client calls protected endpoints (access token)
+4. On expiry, client hits refresh endpoint (refresh token)
+5. If refresh valid, new token pair issued
+6. Logout / revoke clears cookies / invalidates refresh lineage
 
 ## Error Handling
+All error responses follow a consistent structured format to simplify client-side validation & UX.
 
-The API implements a consistent error response format to facilitate front-end form validation and error handling:
-
-- **Format:** All errors are returned in a standardized format:
-  ```json
-  {
-    "errors": {
-      "field_name": "Error message specific to this field"
-    }
+### JSON Structure
+```json
+{
+  "errors": {
+    "field_name": "Error message specific to this field",
+    "another_field": "Another validation or domain error"
   }
-  ```
+}
+```
 
-- **Field-Specific Errors:** The error response includes field names as keys, allowing the front-end to easily map errors to specific form fields:
-  - For validation errors (e.g., email format, required fields), the field name will indicate which input needs correction
-  - For general errors, the status code field may be used with a general error message
+### HTTP Status Codes (Representative)
+- 400 Bad Request: Invalid input / validation failure
+- 401 Unauthorized: Missing or invalid authentication
+- 403 Forbidden: Authenticated but insufficient privileges
+- 404 Not Found: Resource does not exist
+- 409 Conflict: Resource already exists (e.g. duplicate email)
+- 500 Internal Server Error: Unhandled server condition
 
-- **HTTP Status Codes:**
-  - `400 Bad Request`: Invalid input data
-  - `401 Unauthorized`: Authentication required or failed
-  - `403 Forbidden`: Permission denied
-  - `404 Not Found`: Resource not found
-  - `409 Conflict`: Resource already exists (e.g., email already taken)
-  - `500 Internal Server Error`: Server-side errors
+This predictable contract enables straightforward form + inline error displays on the client.
 
-This error handling system makes it easy to implement client-side form validation and display appropriate error messages to users.
+## Local Development
+Choose either native Go tooling or Docker. Docker Compose is recommended for parity.
 
-## Deployment
+### Prerequisites
+- Go (if building locally)
+- Docker & Docker Compose
+- PostgreSQL (if not using the Compose service)
+- OpenSSL / mkcert (for generating local certificates)
 
-The application can be deployed using Docker. See the Docker documentation for more details.
-
+### Quick Start (Docker Compose)
 ```bash
 docker compose up --build
 ```
 
-The API will be available at http://localhost:8080.
+By default the API will be reachable at:
+- http://localhost:8080 (if HTTP)
+- https://localhost:8080 (if HTTPS enabled)
+
+### Live Reload (If configured)
+If an auto-reload tool is integrated (e.g. `air`), changes will rebuild automatically. Otherwise restart the container.
+
+## Local HTTPS & OAuth
+HTTPS is required for local OAuth (Google / GitHub) redirect flows.
+
+Steps:
+1. Generate or obtain development certificates named:
+   - `localhost+2.pem`
+   - `localhost+2-key.pem`
+2. Place both files in the project root
+3. Set `USE_HTTPS=true` in `.env`
+4. Ensure OAuth app redirect URIs use https://localhost:8080
+
+(Certificate generation can be done with mkcert: `mkcert localhost 127.0.0.1 ::1`)
+
+## Environment Variables
+Full list of currently expected environment variables (correct spellings shown; fix any typos in your local `.env`):
+
+| Variable | Purpose / Description |
+|----------|-----------------------|
+| MODE | Runtime mode (e.g. development, production) - may toggle logging / security defaults |
+| ACCESS_ORIGIN | Allowed origin (CORS) for browser clients (e.g. https://app.example.com) |
+| ACCESS_TOKEN_EXPIRES | Access token lifetime (e.g. 15m, 1h) used when issuing JWTs |
+| USE_HTTPS | Set to true to enable TLS locally |
+| TLS_CERT_PATH | Filesystem path to TLS certificate (used when USE_HTTPS=true) |
+| TLS_KEY_PATH | Filesystem path to TLS private key (used when USE_HTTPS=true) |
+| GOOGLE_CLIENT_ID | Google OAuth Client ID |
+| GOOGLE_CLIENT_SECRET | Google OAuth Client Secret |
+| GOOGLE_REDIRECT_URI | Google OAuth redirect URI (must match console) |
+| GITHUB_CLIENT_ID | GitHub OAuth Client ID |
+| GITHUB_CLIENT_SECRET | GitHub OAuth Client Secret |
+| GITHUB_REDIRECT_URI | GitHub OAuth redirect URI |
+| CRON_CHECK_FOR_EXPIRED_POLLS | Cron expression / interval controlling scheduled poll expiration task |
+| AWS_ACCESS_KEY_ID | AWS credential for S3 access |
+| AWS_SECRET_ACCESS_KEY | AWS secret credential for S3 access |
+| AWS_REGION | AWS region of the S3 bucket |
+| AWS_S3_BUCKET | S3 bucket name used for asset/object storage |
+| IP_RATE_LIMIT | Base allowed requests per interval (token refill rate) |
+| IP_RATE_BURST | Burst capacity above steady rate (token bucket size) |
+
+Keep secrets out of version control—use a local `.env` or managed secret store in production.
+
+## Running with Docker
+
+### Build Image
+```bash
+docker build -t ghostvox-backend .
+```
+
+### Run Container
+```bash
+docker run --rm -p 8080:8080 ghostvox-backend
+```
+
+### Compose (App + DB)
+See the earlier Quick Start; typically Compose defines both API + PostgreSQL.
+
+## Deployment (Fly.io)
+High-level deployment outline (verify with your Fly configuration files):
+
+1. Authenticate with Fly
+2. Create / configure app (`fly launch` or existing `fly.toml`)
+3. Provision PostgreSQL (Fly Postgres cluster)
+4. Set secrets (`fly secrets set KEY=VALUE`)
+5. Deploy (`fly deploy`)
+6. Run any migrations (depending on tooling)
+
+Monitor logs and scaling using Fly's CLI or dashboard.
+
+## Database & Data Integrity
+- PostgreSQL with foreign keys & cascading deletes to maintain referential integrity
+- Transactions wrap multi-step critical operations (e.g., new user + issuing tokens)
+- Poll-related entities likely reference users (consult schema for relations)
+
+(Refer to migration or model files for exact table definitions; not duplicated here.)
+
+## Example Requests
+
+### Health / Root (Example)
+```bash
+curl -i http://localhost:8080/health
+```
+
+### Authenticated Request (Pseudo)
+```bash
+curl -i \
+  -H "Cookie: access_token=YOUR_ACCESS_JWT" \
+  http://localhost:8080/api/protected-resource
+```
+
+### Refresh Token
+```bash
+curl -i \
+  -H "Cookie: refresh_token=YOUR_REFRESH_JWT" \
+  -X POST http://localhost:8080/auth/refresh
+```
+
+(Refer to OpenAPI spec for exact paths, verbs, and schemas.)
+
+## Project Structure (High-Level)
+(Actual paths may differ—adjust to match the repository.)
+
+```
+/cmd            Main entrypoint(s)
+/internal       Application code (services, handlers, repos, auth)
+/pkg            Reusable packages (if any)
+openapi_spec.yaml
+docker-compose.yml
+Dockerfile
+```
+
+## License
+[MIT](LICENSE.txt)
+
+---
+
+For any gaps or ambiguities, prefer inspecting the code and OpenAPI document—this README intentionally avoids duplication to reduce drift.
