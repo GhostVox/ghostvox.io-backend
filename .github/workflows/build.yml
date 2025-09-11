@@ -23,7 +23,6 @@ jobs:
           go-version: "1.23" # Specify your Go version here
 
       - name: Build binary
-        needs: [testj]
         # The -v flag provides more verbose output during the build.
         run: go build -v -o ghostvox-backend .
 
