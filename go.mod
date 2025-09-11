@@ -17,6 +17,7 @@ require (
 	github.com/robfig/cron/v3 v3.0.0
 	golang.org/x/crypto v0.35.0
 	golang.org/x/oauth2 v0.27.0
+	golang.org/x/time v0.13.0
 )
 
 require (
@@ -35,5 +36,4 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.34.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.38.2 // indirect
 	github.com/aws/smithy-go v1.23.0 // indirect
-	golang.org/x/time v0.13.0 // indirect
 )

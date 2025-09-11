@@ -3,9 +3,11 @@ package main
 import (
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/joho/godotenv"
+	"golang.org/x/time/rate"
 )
 
 // EnvConfig holds all environment configuration
@@ -31,6 +33,8 @@ type EnvConfig struct {
 	AWSBucket             string
 	AWSAccessKeyID        string
 	AWSSecretAccessKey    string
+	IPRateLimit           rate.Limit
+	IPRateBurst           int
 }
 
 // LoadEnv loads environment variables and returns a config struct
@@ -109,6 +113,26 @@ func LoadEnv() (*EnvConfig, error) {
 		keyFile = "./localhost+2-key.pem"
 	}
 
+	ipRateLimitStr := os.Getenv("IP_RATE_LIMIT")
+	if ipRateLimitStr == "" {
+		ipRateLimitStr = "10"
+	}
+	rateLimit, err := strconv.Atoi(ipRateLimitStr)
+	if err != nil {
+		log.Fatalf("Invalid IP rate limit: %v", err)
+	}
+
+	ipRateLimit := rate.Limit(rateLimit)
+
+	ipRateBurstStr := os.Getenv("IP_RATE_BURST")
+	if ipRateBurstStr == "" {
+		ipRateBurstStr = "100"
+	}
+	ipRateBurst, err := strconv.Atoi(ipRateBurstStr)
+	if err != nil {
+		log.Fatalf("Invalid IP rate burst: %v", err)
+	}
+
 	return &EnvConfig{
 		DBURL:                 dbURL,
 		Platform:              platform,
@@ -131,5 +155,7 @@ func LoadEnv() (*EnvConfig, error) {
 		AWSBucket:             awsBucket,
 		AWSAccessKeyID:        awsAccessKeyID,
 		AWSSecretAccessKey:    awsSecretAccessKey,
+		IPRateLimit:           ipRateLimit,
+		IPRateBurst:           ipRateBurst,
 	}, nil
 }

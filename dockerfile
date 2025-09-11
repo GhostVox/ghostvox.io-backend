@@ -1,5 +1,5 @@
 
-ARG GO_VERSION=1.23.6
+ARG GO_VERSION=1.24
 FROM --platform=$BUILDPLATFORM golang:${GO_VERSION} AS build
 WORKDIR /src
 
@@ -39,10 +39,10 @@ FROM alpine:latest AS final
 # Install runtime dependencies + goose for migrations
 RUN --mount=type=cache,target=/var/cache/apk \
     apk --update add \
-        ca-certificates \
-        tzdata \
-        && \
-        update-ca-certificates
+    ca-certificates \
+    tzdata \
+    && \
+    update-ca-certificates
 
 # Install goose
 RUN wget -O /usr/local/bin/goose https://github.com/pressly/goose/releases/latest/download/goose_linux_x86_64 \
