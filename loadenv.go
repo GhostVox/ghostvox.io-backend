@@ -35,6 +35,7 @@ type EnvConfig struct {
 	AWSSecretAccessKey    string
 	IPRateLimit           rate.Limit
 	IPRateBurst           int
+	IPLastSeen            time.Duration
 }
 
 // LoadEnv loads environment variables and returns a config struct
@@ -133,6 +134,15 @@ func LoadEnv() (*EnvConfig, error) {
 		log.Fatalf("Invalid IP rate burst: %v", err)
 	}
 
+	ipLastSeenStr := os.Getenv("IP_LAST_SEEN")
+	if ipLastSeenStr == "" {
+		ipLastSeenStr = "1440m"
+	}
+	ipLastSeen, err := time.ParseDuration(ipLastSeenStr)
+	if err != nil {
+		log.Fatalf("Invalid IP last seen duration: %v", err)
+	}
+
 	return &EnvConfig{
 		DBURL:                 dbURL,
 		Platform:              platform,
@@ -157,5 +167,6 @@ func LoadEnv() (*EnvConfig, error) {
 		AWSSecretAccessKey:    awsSecretAccessKey,
 		IPRateLimit:           ipRateLimit,
 		IPRateBurst:           ipRateBurst,
+		IPLastSeen:            ipLastSeen,
 	}, nil
 }

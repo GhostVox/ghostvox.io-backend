@@ -99,7 +99,7 @@ func main() {
 	// Create authorization middleware instance
 	authMiddleware := mw.Authenticator(cfg.GhostvoxSecretKey)
 
-	rateLimiter := mw.NewIPRateLimiter(envConfig.IPRateLimit, envConfig.IPRateBurst)
+	rateLimiter := mw.NewIPRateLimiter(envConfig.IPRateLimit, envConfig.IPRateBurst, envConfig.IPLastSeen)
 	// Initialize handlers
 
 	rootHandler := handlers.NewRootHandler(cfg)

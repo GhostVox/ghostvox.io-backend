@@ -19,7 +19,7 @@ func TestIPRateLimiter_Middleware(t *testing.T) {
 
 	// Create a rate limiter that allows 1 request per second with a burst of 1.
 	// This makes it easy to test the rate limit.
-	limiter := NewIPRateLimiter(rate.Limit(1), 1)
+	limiter := NewIPRateLimiter(rate.Limit(1), 1, time.Second)
 	testHandler := limiter.Middleware(mockHandler)
 
 	// --- Test Case 1: First request should be allowed ---
@@ -70,7 +70,7 @@ func TestIPRateLimiter_Middleware(t *testing.T) {
 
 // TestIPRateLimiter_getClientIP tests the logic for extracting the client's IP address.
 func TestIPRateLimiter_getClientIP(t *testing.T) {
-	limiter := NewIPRateLimiter(1, 1)
+	limiter := NewIPRateLimiter(1, 1, time.Second)
 
 	testCases := []struct {
 		name       string
@@ -120,7 +120,7 @@ func TestIPRateLimiter_getClientIP(t *testing.T) {
 
 // TestIPRateLimiter_getLimiter_Concurrency tests that the getLimiter method is thread-safe.
 func TestIPRateLimiter_getLimiter_Concurrency(t *testing.T) {
-	limiter := NewIPRateLimiter(10, 10)
+	limiter := NewIPRateLimiter(10, 10, time.Second)
 	ip := "192.168.1.1"
 
 	// Get the initial limiter to compare against.
