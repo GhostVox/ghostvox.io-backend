@@ -55,7 +55,7 @@ func LoadEnv() (*EnvConfig, error) {
 		}
 		return val
 	}
-	// Get the  DB connection URL parts
+	// Get the DB connection URL parts
 
 	DB_HOST := getRequiredEnv("DB_HOST")
 	DB_PORT := getRequiredEnv("DB_PORT")

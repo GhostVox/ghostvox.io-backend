@@ -9,11 +9,13 @@ import (
 	"github.com/GhostVox/ghostvox.io-backend/internal/auth"
 	"github.com/GhostVox/ghostvox.io-backend/internal/config"
 	"github.com/GhostVox/ghostvox.io-backend/internal/database"
+	trie "github.com/Ghostvox/trie_hard/go"
 	"github.com/google/uuid"
 )
 
 type CommentHandler struct {
-	cfg *config.APIConfig
+	cfg    *config.APIConfig
+	filter *trie.Trie[string]
 }
 
 type CommentResponse struct {
@@ -25,8 +27,11 @@ type CommentResponse struct {
 	CreatedAt string         `json:"CreatedAt"`
 }
 
-func NewCommentHandler(cfg *config.APIConfig) *CommentHandler {
-	return &CommentHandler{cfg: cfg}
+func NewCommentHandler(cfg *config.APIConfig, filter *trie.Trie[string]) *CommentHandler {
+	return &CommentHandler{
+		cfg:    cfg,
+		filter: filter,
+	}
 }
 
 func (h *CommentHandler) GetAllPollComments(w http.ResponseWriter, r *http.Request) {

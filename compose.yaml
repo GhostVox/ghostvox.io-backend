@@ -4,7 +4,7 @@ services:
       context: .
       target: final
     ports:
-      - 8080:8080
+      - "8080:8080"
     depends_on:
       db:
         condition: service_healthy
@@ -26,7 +26,7 @@ services:
    
 
   db:
-    image: postgres:15 # Specify version for reproducibility
+    image: postgres:15 # Specify a version for reproducibility
     restart: always
     user: postgres
     volumes:

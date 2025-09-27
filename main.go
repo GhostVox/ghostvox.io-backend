@@ -16,13 +16,15 @@ import (
 	"github.com/GhostVox/ghostvox.io-backend/internal/database"
 	"github.com/GhostVox/ghostvox.io-backend/internal/handlers"
 	mw "github.com/GhostVox/ghostvox.io-backend/internal/middleware"
+	"github.com/GhostVox/ghostvox.io-backend/internal/utils"
+	"github.com/Ghostvox/trie_hard/go"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	_ "github.com/lib/pq"
+	"golang.org/x/oauth2/github"
 
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/github"
 	"golang.org/x/oauth2/google"
 )
 
@@ -43,12 +45,10 @@ func main() {
 		log.Fatalf("Error connecting to database: %v", err)
 	}
 
-	//Connect database to sqlc code to get a pointer to queries to build handlers
+	//Connect a database to SQL code to get a pointer to queries to build handlers
 	dbConnection := database.New(db)
-	if err != nil {
-		log.Fatal(err)
-	}
-	//Configure API struct to pass around
+
+	//Configure the API struct to pass around
 	cfg := &config.APIConfig{
 		DB:                db,
 		Queries:           dbConnection,
@@ -88,7 +88,7 @@ func main() {
 
 	credsProvider := credentials.NewStaticCredentialsProvider(envConfig.AWSAccessKeyID, envConfig.AWSSecretAccessKey, "")
 
-	// 1. Load configuration, automatically finding region and credentials
+	// 1. Load configuration, automatically finding a region and credentials
 	awsCfg, err := awsconfig.LoadDefaultConfig(context.TODO(), awsconfig.WithRegion(envConfig.AWSRegion), awsconfig.WithCredentialsProvider(credsProvider))
 	if err != nil {
 		log.Fatalf("unable to load SDK config, %v", err)
@@ -96,15 +96,17 @@ func main() {
 
 	s3Client := s3.NewFromConfig(awsCfg)
 
-	// Create authorization middleware instance
+	// Create an authorization middleware instance
 	authMiddleware := mw.Authenticator(cfg.GhostvoxSecretKey)
 
 	rateLimiter := mw.NewIPRateLimiter(envConfig.IPRateLimit, envConfig.IPRateBurst, envConfig.IPLastSeen)
+
+	filter := utils.NewFilter(dbConnection)
 	// Initialize handlers
 
 	rootHandler := handlers.NewRootHandler(cfg)
 	pollHandler := handlers.NewPollHandler(cfg)
-	commentHandler := handlers.NewCommentHandler(cfg)
+	commentHandler := handlers.NewCommentHandler(cfg, filter)
 	voteHandler := handlers.NewVoteHandler(cfg)
 	optionHandler := handlers.NewOptionHandler(cfg)
 	authHandler := handlers.NewAuthHandler(cfg)
@@ -186,22 +188,22 @@ func main() {
 	mux.HandleFunc("POST /api/v1/users/username", mw.LoggingMiddleware(authMiddleware(addUserNameHandler)))
 	mux.HandleFunc("DELETE /api/v1/users/", mw.LoggingMiddleware(authMiddleware(deleteUserHandler)))
 
-	// End of users routes
+	// End of users' routes
 
 	// Options Routes
 
 	mux.HandleFunc("DELETE /api/v1/polls/{pollId}/options/{optionId}", mw.LoggingMiddleware(optionHandler.DeleteOption))
 	// End of options routes
 
-	//Redirect from root page to API documentation
-	mux.HandleFunc("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	//Redirect from the root page to API documentation
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
 			http.Redirect(w, r, "http://localhost:8080/api/v1", http.StatusFound)
 			return
 		}
 
 		http.NotFound(w, r)
-	}))
+	})
 
 	addr := port
 	// Create a pointer to the http.Server object and configure it
@@ -238,7 +240,7 @@ func main() {
 			}
 		}()
 		<-stop
-		fmt.Println("Shuting down server and cron jobs")
+		fmt.Println("Shutting down server and cron jobs")
 		serverCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 		defer cancel()
 		err := server.Shutdown(serverCtx)

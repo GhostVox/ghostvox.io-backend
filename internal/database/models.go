@@ -93,6 +93,13 @@ type RefreshToken struct {
 	ExpiresAt time.Time
 }
 
+type Restrictedword struct {
+	ID        uuid.UUID
+	Word      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 type User struct {
 	ID             uuid.UUID
 	CreatedAt      time.Time
