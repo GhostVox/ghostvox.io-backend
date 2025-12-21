@@ -1,5 +1,5 @@
 
-ARG GO_VERSION=1.24
+ARG GO_VERSION=1.25
 FROM --platform=$BUILDPLATFORM golang:${GO_VERSION} AS build
 WORKDIR /src
 
@@ -41,6 +41,8 @@ RUN --mount=type=cache,target=/var/cache/apk \
     apk --update add \
     ca-certificates \
     tzdata \
+    bash \
+    postgresql-client \
     && \
     update-ca-certificates
 

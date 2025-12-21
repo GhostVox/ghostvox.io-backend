@@ -51,10 +51,12 @@ func LoadEnv() (*EnvConfig, error) {
 	getRequiredEnv := func(key string) string {
 		val := os.Getenv(key)
 		if val == "" {
-			log.Fatalf("%s must be set", key)
+			log.Printf("%s must be set", key)
+			return ""
 		}
 		return val
 	}
+
 	// Get the DB connection URL parts
 
 	DB_HOST := getRequiredEnv("DB_HOST")

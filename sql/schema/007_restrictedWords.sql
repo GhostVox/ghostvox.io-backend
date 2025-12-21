@@ -1,7 +1,7 @@
 -- +goose Up
-Create Table restrictedWords (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4 (),
-    word TEXT NOT NULL UNIQUE,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW (),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW ()
+Create Table RESTRICTEDWORDS (
+    ID UUID Primary Key Default uuid_generate_v4(),
+    WORD TEXT Not Null Unique,
+    CREATED_AT TIMESTAMP Not Null Default now(),
+    UPDATED_AT TIMESTAMP Not Null Default now()
 );

@@ -17,7 +17,6 @@ import (
 	"github.com/GhostVox/ghostvox.io-backend/internal/handlers"
 	mw "github.com/GhostVox/ghostvox.io-backend/internal/middleware"
 	"github.com/GhostVox/ghostvox.io-backend/internal/utils"
-	"github.com/Ghostvox/trie_hard/go"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -30,10 +29,12 @@ import (
 
 func main() {
 
+	// set the port for the server
 	const (
 		port = ":8080"
 	)
 
+	// Load enviroment variables
 	envConfig, err := LoadEnv()
 	if err != nil {
 		log.Fatalf("Error loading environment variables: %v", err)

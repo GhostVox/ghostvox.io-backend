@@ -1,3 +1,5 @@
+
+
 -- name: GetAllRestrictedWords :one
 Select ARRAY_AGG(word) from restrictedWords;
 
