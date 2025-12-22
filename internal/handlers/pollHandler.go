@@ -11,6 +11,7 @@ import (
 	"github.com/GhostVox/ghostvox.io-backend/internal/auth"
 	"github.com/GhostVox/ghostvox.io-backend/internal/config"
 	"github.com/GhostVox/ghostvox.io-backend/internal/database"
+	"github.com/GhostVox/ghostvox.io-backend/internal/utils"
 	"github.com/google/uuid"
 )
 
@@ -40,12 +41,14 @@ type PollResponse struct {
 }
 
 type pollHandler struct {
-	cfg *config.APIConfig
+	cfg    *config.APIConfig
+	filter *utils.Trie
 }
 
-func NewPollHandler(cfg *config.APIConfig) *pollHandler {
+func NewPollHandler(cfg *config.APIConfig, filter *utils.Trie) *pollHandler {
 	return &pollHandler{
-		cfg: cfg,
+		cfg:    cfg,
+		filter: filter,
 	}
 }
 
@@ -88,6 +91,16 @@ func (h *pollHandler) GetPollByID(w http.ResponseWriter, r *http.Request, claims
 		UserID: userUUID,
 	})
 
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound), "Poll not found", err)
+			return
+		} else {
+			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
+			return
+		}
+	}
+
 	var options []Option
 	err = json.Unmarshal(poll.Options, &options)
 	if err != nil {
@@ -127,6 +140,17 @@ func (h *pollHandler) CreatePoll(w http.ResponseWriter, r *http.Request, claims 
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
 		return
 	}
+	if !checkInputClean(newPoll.Title, h.filter, &w) {
+		return
+	}
+	if !checkInputClean(newPoll.Description, h.filter, &w) {
+		return
+	}
+	for _, option := range newPoll.Options {
+		if !checkInputClean(option.Name, h.filter, &w) {
+			return
+		}
+	}
 
 	err = CreatePollWithOptions(r.Context(), h.cfg, newPoll, userUUID)
 	if err != nil {
@@ -137,6 +161,15 @@ func (h *pollHandler) CreatePoll(w http.ResponseWriter, r *http.Request, claims 
 	respondWithJSON(w, http.StatusCreated, struct {
 		msg string
 	}{msg: http.StatusText(http.StatusOK)})
+}
+
+func checkInputClean(input string, filter *utils.Trie, w *http.ResponseWriter) bool {
+	clean := filter.Search(input)
+	if !clean {
+		respondWithError(*w, http.StatusBadRequest, "profanity", "Input contains profanity", nil)
+		return false
+	}
+	return true
 }
 
 func (h *pollHandler) UpdatePoll(w http.ResponseWriter, r *http.Request, claims *auth.CustomClaims) {
@@ -153,6 +186,13 @@ func (h *pollHandler) UpdatePoll(w http.ResponseWriter, r *http.Request, claims 
 	err = json.NewDecoder(r.Body).Decode(&newPoll)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
+		return
+	}
+	// Validate inputs for profanity
+	if !checkInputClean(newPoll.Title, h.filter, &w) {
+		return
+	}
+	if !checkInputClean(newPoll.Description, h.filter, &w) {
 		return
 	}
 
@@ -253,7 +293,11 @@ func (h *pollHandler) GetAllActivePolls(w http.ResponseWriter, r *http.Request, 
 	pollsResp := make([]PollResponse, len(polls))
 	for i, poll := range polls {
 		var options []Option
-		json.Unmarshal(poll.Options, &options)
+		err := json.Unmarshal(poll.Options, &options)
+		if err != nil {
+			respondWithError(w, http.StatusBadRequest, "options", "Invalid options", err)
+			return
+		}
 		p := PollResponse{
 			ID:          poll.Pollid,
 			Title:       poll.Title,
@@ -314,7 +358,11 @@ func (h *pollHandler) GetAllFinishedPolls(w http.ResponseWriter, r *http.Request
 	pollsResp := make([]PollResponse, len(polls))
 	for i, poll := range polls {
 		var options []Option
-		json.Unmarshal(poll.Options, &options)
+		err := json.Unmarshal(poll.Options, &options)
+		if err != nil {
+			respondWithError(w, http.StatusBadRequest, "options", "Invalid options", err)
+			return
+		}
 		p := PollResponse{
 			ID:          poll.Pollid,
 			Title:       poll.Title,
@@ -374,7 +422,11 @@ func (h *pollHandler) GetUsersPolls(w http.ResponseWriter, r *http.Request) {
 	pollsResp := make([]PollResponse, len(userPolls))
 	for i, poll := range userPolls {
 		var options []Option
-		json.Unmarshal(poll.Options, &options)
+		err = json.Unmarshal(poll.Options, &options)
+		if err != nil {
+			respondWithError(w, http.StatusBadRequest, "options", "Invalid options", err)
+			return
+		}
 		p := PollResponse{
 			ID:          poll.Pollid,
 			Title:       poll.Title,
@@ -416,7 +468,11 @@ func (h *pollHandler) GetRecentPolls(w http.ResponseWriter, r *http.Request, cla
 	pollsResp := make([]PollResponse, len(polls))
 	for i, poll := range polls {
 		var options []Option
-		json.Unmarshal(poll.Options, &options)
+		err = json.Unmarshal(poll.Options, &options)
+		if err != nil {
+			respondWithError(w, http.StatusBadRequest, "options", "Invalid options", err)
+			return
+		}
 
 		p := PollResponse{
 			ID:          poll.Pollid,

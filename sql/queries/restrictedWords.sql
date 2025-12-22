@@ -1,9 +1,13 @@
-
-
--- name: GetAllRestrictedWords :one
-Select ARRAY_AGG(word) from restrictedWords;
+-- name: GetAllRestrictedWords :many
+SELECT word FROM restrictedWords;
 
 -- name: AddRestrictedWord :one
-Insert into restrictedWords (word) values ($1) returning *;
+INSERT INTO restrictedWords (word) 
+VALUES ($1) 
+ON CONFLICT (word) DO NOTHING
+RETURNING *;
 
-
+-- name: AddRestrictedWordsBatch :exec
+INSERT INTO restrictedWords (word)
+SELECT unnest($1::text[])
+ON CONFLICT (word) DO NOTHING;

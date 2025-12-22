@@ -49,6 +49,11 @@ func main() {
 	//Connect a database to SQL code to get a pointer to queries to build handlers
 	dbConnection := database.New(db)
 
+	// Seed restricted words on startup
+	log.Println("Checking restricted words in database...")
+	if err := utils.SeedRestrictedWords(context.Background(), dbConnection); err != nil {
+		log.Printf("Warning: Failed to seed restricted words: %v", err)
+	}
 	//Configure the API struct to pass around
 	cfg := &config.APIConfig{
 		DB:                db,
@@ -155,11 +160,11 @@ func main() {
 
 	mux.HandleFunc("PUT /api/v1/polls/{pollId}", mw.LoggingMiddleware(authMiddleware(updatePollHandler)))
 
-	mux.HandleFunc("POST /api/v1/polls", mw.LoggingMiddleware(authMiddleware(createPollHandler))) // in use
+	mux.HandleFunc("POST /api/v1/polls", mw.Cleanse(mw.LoggingMiddleware(authMiddleware(createPollHandler)))) // in use
 
 	mux.HandleFunc("POST /api/v1/polls/{pollId}/vote", mw.LoggingMiddleware(voteHandler.VoteOnPoll))
 
-	mux.HandleFunc("POST /api/v1/polls/{pollId}/comments", mw.LoggingMiddleware(authMiddleware(createCommentHandler)))
+	mux.HandleFunc("POST /api/v1/polls/{pollId}/comments", mw.Cleanse(mw.LoggingMiddleware(authMiddleware(createCommentHandler))))
 
 	mux.HandleFunc("DELETE /api/v1/polls/{pollId}/comments/{commentId}", mw.LoggingMiddleware(authMiddleware(deletePollHandler)))
 
