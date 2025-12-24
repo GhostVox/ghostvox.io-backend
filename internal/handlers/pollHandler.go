@@ -101,26 +101,23 @@ func (h *pollHandler) GetPollByID(w http.ResponseWriter, r *http.Request, claims
 		}
 	}
 
-	var options []Option
-	err = json.Unmarshal(poll.Options, &options)
+	pollResponse, err := h.mapToPollResponse(
+		poll.Pollid,
+		poll.Title,
+		poll.Description,
+		poll.Category,
+		string(poll.Status),
+		poll.Creatorfirstname.String,
+		poll.Creatorlastname.String,
+		poll.Expiresat,
+		poll.Votes,
+		poll.Comments,
+		poll.Options,
+		poll.Uservote,
+	)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "options", "Invalid options", err)
 		return
-	}
-
-	pollResponse := PollResponse{
-		ID:          poll.Pollid,
-		Title:       poll.Title,
-		Creator:     poll.Creatorfirstname.String + " " + poll.Creatorlastname.String,
-		Description: poll.Description,
-		Status:      string(poll.Status),
-		Category:    poll.Category,
-		Options:     options,
-		DaysLeft:    int64(time.Until(poll.Expiresat).Hours() / 24),
-		Votes:       poll.Votes,
-		Comments:    poll.Comments,
-		EndedAt:     poll.Expiresat,
-		UserVote:    poll.Uservote,
 	}
 
 	respondWithJSON(w, http.StatusOK, pollResponse)
@@ -140,6 +137,18 @@ func (h *pollHandler) CreatePoll(w http.ResponseWriter, r *http.Request, claims 
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
 		return
 	}
+
+	// Check that title and description are present
+	titlePresent, descriptionPresent := CheckPollTitleAndDescription(newPoll.Title, newPoll.Description)
+	if !titlePresent {
+		respondWithError(w, http.StatusBadRequest, "title", "Title is required", nil)
+		return
+	}
+	if !descriptionPresent {
+		newPoll.Description = "No description provided."
+	}
+
+	// Check for profanity in title, description, and options
 	if !checkInputClean(newPoll.Title, h.filter, &w) {
 		return
 	}
@@ -163,15 +172,6 @@ func (h *pollHandler) CreatePoll(w http.ResponseWriter, r *http.Request, claims 
 	}{msg: http.StatusText(http.StatusOK)})
 }
 
-func checkInputClean(input string, filter *utils.Trie, w *http.ResponseWriter) bool {
-	clean := filter.Search(input)
-	if !clean {
-		respondWithError(*w, http.StatusBadRequest, "profanity", "Input contains profanity", nil)
-		return false
-	}
-	return true
-}
-
 func (h *pollHandler) UpdatePoll(w http.ResponseWriter, r *http.Request, claims *auth.CustomClaims) {
 	pollId := r.PathValue("pollId")
 
@@ -187,6 +187,16 @@ func (h *pollHandler) UpdatePoll(w http.ResponseWriter, r *http.Request, claims 
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Internal server error", err)
 		return
+	}
+
+	// Check that title and description are present
+	titlePresent, descriptionPresent := CheckPollTitleAndDescription(newPoll.Title, newPoll.Description)
+	if !titlePresent {
+		respondWithError(w, http.StatusBadRequest, "title", "Title is required", nil)
+		return
+	}
+	if !descriptionPresent {
+		newPoll.Description = "No description provided."
 	}
 	// Validate inputs for profanity
 	if !checkInputClean(newPoll.Title, h.filter, &w) {
@@ -292,26 +302,24 @@ func (h *pollHandler) GetAllActivePolls(w http.ResponseWriter, r *http.Request, 
 	}
 	pollsResp := make([]PollResponse, len(polls))
 	for i, poll := range polls {
-		var options []Option
-		err := json.Unmarshal(poll.Options, &options)
+
+		p, err := h.mapToPollResponse(
+			poll.Pollid,
+			poll.Title,
+			poll.Description,
+			poll.Category,
+			string(poll.Status),
+			poll.Creatorfirstname,
+			poll.Creatorlastname.String,
+			poll.Expiresat,
+			poll.Votes,
+			poll.Comments,
+			poll.Options,
+			poll.Uservote,
+		)
 		if err != nil {
 			respondWithError(w, http.StatusBadRequest, "options", "Invalid options", err)
 			return
-		}
-		p := PollResponse{
-			ID:          poll.Pollid,
-			Title:       poll.Title,
-			Creator:     poll.Creatorfirstname + " " + poll.Creatorlastname.String,
-			Description: poll.Description,
-			Status:      string(poll.Status),
-			Category:    poll.Category,
-			DaysLeft:    int64(time.Until(poll.Expiresat).Hours() / 24),
-			Options:     options,
-			Votes:       poll.Votes,
-			Comments:    poll.Comments,
-			EndedAt:     poll.Expiresat,
-			Winner:      getWinner(options),
-			UserVote:    poll.Uservote,
 		}
 		pollsResp[i] = p
 	}
@@ -357,26 +365,23 @@ func (h *pollHandler) GetAllFinishedPolls(w http.ResponseWriter, r *http.Request
 
 	pollsResp := make([]PollResponse, len(polls))
 	for i, poll := range polls {
-		var options []Option
-		err := json.Unmarshal(poll.Options, &options)
+		p, err := h.mapToPollResponse(
+			poll.Pollid,
+			poll.Title,
+			poll.Description,
+			poll.Category,
+			string(poll.Status),
+			poll.Creatorfirstname,
+			poll.Creatorlastname.String,
+			poll.Expiresat,
+			poll.Votes,
+			poll.Comments,
+			poll.Options,
+			poll.Uservote,
+		)
 		if err != nil {
 			respondWithError(w, http.StatusBadRequest, "options", "Invalid options", err)
 			return
-		}
-		p := PollResponse{
-			ID:          poll.Pollid,
-			Title:       poll.Title,
-			Creator:     poll.Creatorfirstname + " " + poll.Creatorlastname.String,
-			Description: poll.Description,
-			Status:      string(poll.Status),
-			Category:    poll.Category,
-			DaysLeft:    int64(time.Until(poll.Expiresat).Hours() / 24),
-			Options:     options,
-			Votes:       poll.Votes,
-			Comments:    poll.Comments,
-			EndedAt:     poll.Expiresat,
-			Winner:      getWinner(options),
-			UserVote:    poll.Uservote,
 		}
 		pollsResp[i] = p
 	}
@@ -421,25 +426,23 @@ func (h *pollHandler) GetUsersPolls(w http.ResponseWriter, r *http.Request) {
 
 	pollsResp := make([]PollResponse, len(userPolls))
 	for i, poll := range userPolls {
-		var options []Option
-		err = json.Unmarshal(poll.Options, &options)
+		p, err := h.mapToPollResponse(
+			poll.Pollid,
+			poll.Title,
+			poll.Description,
+			poll.Category,
+			string(poll.Status),
+			poll.Creatorfirstname,
+			poll.Creatorlastname.String,
+			poll.Expiresat,
+			poll.Votes,
+			poll.Comments,
+			poll.Options,
+			poll.Uservote,
+		)
 		if err != nil {
 			respondWithError(w, http.StatusBadRequest, "options", "Invalid options", err)
 			return
-		}
-		p := PollResponse{
-			ID:          poll.Pollid,
-			Title:       poll.Title,
-			Creator:     poll.Creatorfirstname + " " + poll.Creatorlastname.String,
-			Description: poll.Description,
-			Status:      string(poll.Status),
-			Category:    poll.Category,
-			DaysLeft:    int64(time.Until(poll.Expiresat).Hours() / 24),
-			Options:     options,
-			Votes:       poll.Votes,
-			Comments:    poll.Comments,
-			EndedAt:     poll.Expiresat,
-			Winner:      getWinner(options),
 		}
 		pollsResp[i] = p
 	}
@@ -467,31 +470,82 @@ func (h *pollHandler) GetRecentPolls(w http.ResponseWriter, r *http.Request, cla
 
 	pollsResp := make([]PollResponse, len(polls))
 	for i, poll := range polls {
-		var options []Option
-		err = json.Unmarshal(poll.Options, &options)
+		p, err := h.mapToPollResponse(
+			poll.Pollid,
+			poll.Title,
+			poll.Description,
+			poll.Category,
+			string(poll.Status),
+			poll.Creatorfirstname,
+			poll.Creatorlastname.String,
+			poll.Expiresat,
+			poll.Votes,
+			poll.Comments,
+			poll.Options,
+			poll.Uservote,
+		)
 		if err != nil {
 			respondWithError(w, http.StatusBadRequest, "options", "Invalid options", err)
 			return
-		}
-
-		p := PollResponse{
-			ID:          poll.Pollid,
-			Title:       poll.Title,
-			Creator:     poll.Creatorfirstname + " " + poll.Creatorlastname.String,
-			Description: poll.Description,
-			Status:      string(poll.Status),
-			Category:    poll.Category,
-			DaysLeft:    int64(time.Until(poll.Expiresat).Hours() / 24),
-			Options:     options,
-			Votes:       poll.Votes,
-			Comments:    poll.Comments,
-			EndedAt:     poll.Expiresat,
-			Winner:      getWinner(options),
-			UserVote:    poll.Uservote,
 		}
 
 		pollsResp[i] = p
 	}
 
 	respondWithJSON(w, http.StatusOK, pollsResp)
+}
+
+// Create a helper to centralize the conversion logic
+func (h *pollHandler) mapToPollResponse(
+	pollID uuid.UUID,
+	title, description, category, status string,
+	creatorFirst, creatorLast string,
+	expiresAt time.Time,
+	votes, comments int64,
+	optionsJSON []byte,
+	userVote uuid.NullUUID,
+) (PollResponse, error) {
+	var options []Option
+	if err := json.Unmarshal(optionsJSON, &options); err != nil {
+		return PollResponse{}, err
+	}
+
+	return PollResponse{
+		ID:          pollID,
+		Title:       title,
+		Creator:     creatorFirst + " " + creatorLast,
+		Description: description,
+		Status:      status,
+		Category:    category,
+		Options:     options,
+		DaysLeft:    int64(time.Until(expiresAt).Hours() / 24),
+		Votes:       votes,
+		Comments:    comments,
+		EndedAt:     expiresAt,
+		Winner:      getWinner(options),
+		UserVote:    userVote,
+	}, nil
+}
+
+// Helper function to check for profanity in input
+func checkInputClean(input string, filter *utils.Trie, w *http.ResponseWriter) bool {
+	clean := filter.Search(input)
+	if !clean {
+		respondWithError(*w, http.StatusBadRequest, "profanity", "Input contains profanity", nil)
+		return false
+	}
+	return true
+}
+
+// Helper to check if title and description are present
+func CheckPollTitleAndDescription(title string, description string) (bool, bool) {
+	titlePresent := true
+	descriptionPresent := true
+	if title == "" {
+		titlePresent = false
+	}
+	if description == "" {
+		descriptionPresent = false
+	}
+	return titlePresent, descriptionPresent
 }
