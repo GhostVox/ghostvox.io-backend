@@ -111,7 +111,7 @@ func main() {
 	// Initialize handlers
 
 	rootHandler := handlers.NewRootHandler(cfg)
-	pollHandler := handlers.NewPollHandler(cfg)
+	pollHandler := handlers.NewPollHandler(cfg, filter)
 	commentHandler := handlers.NewCommentHandler(cfg, filter)
 	voteHandler := handlers.NewVoteHandler(cfg)
 	optionHandler := handlers.NewOptionHandler(cfg)
@@ -160,15 +160,15 @@ func main() {
 
 	mux.HandleFunc("PUT /api/v1/polls/{pollId}", mw.LoggingMiddleware(authMiddleware(updatePollHandler)))
 
-	mux.HandleFunc("POST /api/v1/polls", mw.Cleanse(mw.LoggingMiddleware(authMiddleware(createPollHandler)))) // in use
+	mux.HandleFunc("POST /api/v1/polls", mw.LoggingMiddleware(authMiddleware(createPollHandler))) // in use
 
 	mux.HandleFunc("POST /api/v1/polls/{pollId}/vote", mw.LoggingMiddleware(voteHandler.VoteOnPoll))
 
-	mux.HandleFunc("POST /api/v1/polls/{pollId}/comments", mw.Cleanse(mw.LoggingMiddleware(authMiddleware(createCommentHandler))))
+	mux.HandleFunc("POST /api/v1/polls/{pollId}/comments", mw.LoggingMiddleware(authMiddleware(createCommentHandler)))
 
 	mux.HandleFunc("DELETE /api/v1/polls/{pollId}/comments/{commentId}", mw.LoggingMiddleware(authMiddleware(deletePollHandler)))
 
-	mux.HandleFunc("DELETE /api/v1/polls/{pollId}", mw.LoggingMiddleware(pollHandler.DeletePoll))
+	mux.HandleFunc("DELETE /api/v1/polls/{pollId}", mw.LoggingMiddleware(authMiddleware(deletePollHandler)))
 	// End of poll routes
 	// OAuth routes
 	mux.HandleFunc("GET /api/v1/auth/google/login", mw.LoggingMiddleware(googleHandler.GoogleLoginHandler))       // in use

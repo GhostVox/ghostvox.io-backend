@@ -4,7 +4,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/GhostVox/ghostvox.io-backend/internal/auth"
 	"github.com/GhostVox/ghostvox.io-backend/internal/config"
@@ -92,11 +94,12 @@ func (h *CommentHandler) CreatePollComment(w http.ResponseWriter, r *http.Reques
 		respondWithError(w, http.StatusBadRequest, "content", "Content is required", nil)
 		return
 	}
+	cleanContent := cleanComment(comment.Content, h.filter)
 
 	commentID, err := h.cfg.Queries.CreateComment(r.Context(), database.CreateCommentParams{
 		UserID:  userUUID,
 		PollID:  pollUUID,
-		Content: comment.Content,
+		Content: cleanContent,
 	})
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "database", "Failed to create comment", err)
@@ -120,10 +123,13 @@ func (h *CommentHandler) DeletePollComment(w http.ResponseWriter, r *http.Reques
 	if commentID == "" {
 
 		respondWithError(w, http.StatusBadRequest, "commentId", "Comment ID is required", nil)
+		return
 	}
 	commentUUID, err := uuid.Parse(commentID)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "commentId", "Invalid CommentID", err)
+		return
+
 	}
 	userUUID, err := uuid.Parse(claims.Subject)
 	if err != nil {
@@ -148,4 +154,23 @@ func (h *CommentHandler) DeletePollComment(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	respondWithJSON(w, http.StatusNoContent, nil)
+}
+
+// Helper to clean comments using the trie filter
+func cleanComment(content string, filter *trie.Trie[string]) string {
+	contentSplit := strings.Fields(content)
+	for i, word := range contentSplit {
+		lower := strings.ToLower(word)
+		cleanedWord := strings.TrimFunc(lower, func(r rune) bool {
+			return !unicode.IsLetter(r) && !unicode.IsNumber(r)
+		})
+
+		if _, found := filter.Get(&cleanedWord); found {
+			// Preserve prefix/suffix punctuation
+			prefix := lower[:strings.Index(lower, cleanedWord)]
+			suffix := lower[strings.Index(lower, cleanedWord)+len(cleanedWord):]
+			contentSplit[i] = prefix + "****" + suffix
+		}
+	}
+	return strings.Join(contentSplit, " ")
 }

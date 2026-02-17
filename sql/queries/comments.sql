@@ -1,5 +1,6 @@
 -- name: GetTotalComments :one
-SELECT COUNT(*) FROM comments WHERE poll_id = $1;
+SELECT COUNT(*) FROM comments WHERE poll_id =
+$1;
 
 -- name: GetTotalCommentsByPollIDs :many
 -- used by pollhandler.processPollData
@@ -13,7 +14,8 @@ GROUP BY poll_id;
 SELECT comments.*, users.user_name as userName, users.picture_url as avatar_url
 FROM comments
 JOIN users ON comments.user_id = users.id
-WHERE poll_id = $1;
+WHERE poll_id = $1
+Order By comments.created_at DESC;
 
 -- name: CreateComment :one
 -- in Use in commenthandler.CreateComment

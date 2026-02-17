@@ -65,6 +65,7 @@ SELECT comments.id, comments.user_id, comments.poll_id, comments.content, commen
 FROM comments
 JOIN users ON comments.user_id = users.id
 WHERE poll_id = $1
+Order By comments.created_at DESC
 `
 
 type GetAllCommentsByPollIDRow struct {
@@ -111,7 +112,8 @@ func (q *Queries) GetAllCommentsByPollID(ctx context.Context, pollID uuid.UUID) 
 }
 
 const getTotalComments = `-- name: GetTotalComments :one
-SELECT COUNT(*) FROM comments WHERE poll_id = $1
+SELECT COUNT(*) FROM comments WHERE poll_id =
+$1
 `
 
 func (q *Queries) GetTotalComments(ctx context.Context, pollID uuid.UUID) (int64, error) {

@@ -6,12 +6,14 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/GhostVox/ghostvox.io-backend/internal/auth"
 	"github.com/GhostVox/ghostvox.io-backend/internal/config"
 	"github.com/GhostVox/ghostvox.io-backend/internal/database"
-	"github.com/GhostVox/ghostvox.io-backend/internal/utils"
+	t "github.com/Ghostvox/trie_hard/go"
 	"github.com/google/uuid"
 )
 
@@ -42,10 +44,10 @@ type PollResponse struct {
 
 type pollHandler struct {
 	cfg    *config.APIConfig
-	filter *utils.Trie
+	filter *t.Trie[string]
 }
 
-func NewPollHandler(cfg *config.APIConfig, filter *utils.Trie) *pollHandler {
+func NewPollHandler(cfg *config.APIConfig, filter *t.Trie[string]) *pollHandler {
 	return &pollHandler{
 		cfg:    cfg,
 		filter: filter,
@@ -528,11 +530,17 @@ func (h *pollHandler) mapToPollResponse(
 }
 
 // Helper function to check for profanity in input
-func checkInputClean(input string, filter *utils.Trie, w *http.ResponseWriter) bool {
-	clean := filter.Search(input)
-	if !clean {
-		respondWithError(*w, http.StatusBadRequest, "profanity", "Input contains profanity", nil)
-		return false
+func checkInputClean(input string, filter *t.Trie[string], w http.ResponseWriter) bool {
+	words := strings.Fields(input)
+	for _, word := range words {
+		cleanedWord := strings.TrimFunc(strings.ToLower(word), func(r rune) bool {
+			return !unicode.IsLetter(r) && !unicode.IsNumber(r)
+		})
+
+		if _, ok := filter.Get(&cleanedWord); ok {
+			respondWithError(w, http.StatusBadRequest, "profanity", "Input contains profanity", nil)
+			return false
+		}
 	}
 	return true
 }
