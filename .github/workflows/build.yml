@@ -41,8 +41,7 @@ jobs:
 
       # This action installs and caches the flyctl CLI tool for use in the workflow.
       - name: Set up Fly.io CLI
-        uses: superfly/flyctl-actions/setup-flyctl@v1.5
-
+        uses: superfly/flyctl-actions/setup-flyctl@master
       # This command deploys your application.
       # It reads your fly.toml, builds the Docker image, pushes it to Fly's registry,
       # and deploys the new release.
