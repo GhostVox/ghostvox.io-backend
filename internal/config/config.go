@@ -20,6 +20,7 @@ type APIConfig struct {
 	AccessOrigin      string
 	AwsS3Bucket       string
 	AwsRegion         string
+	DOMAIN            string
 }
 type OAuthUser struct {
 	Email        string `json:"email,omitempty"`

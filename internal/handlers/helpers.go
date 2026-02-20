@@ -73,7 +73,7 @@ func SetCookiesHelper(w http.ResponseWriter, code int, refreshToken, accessToken
 		Secure:   true,
 		SameSite: http.SameSiteNoneMode,
 		Path:     "/",
-		Domain:   ".ghostvox.io",
+		Domain:   cfg.DOMAIN,
 		Expires:  time.Now().Add(cfg.RefreshTokenExp),
 	})
 
@@ -84,7 +84,7 @@ func SetCookiesHelper(w http.ResponseWriter, code int, refreshToken, accessToken
 		Secure:   true,
 		SameSite: http.SameSiteNoneMode,
 		Path:     "/",
-		Domain:   ".ghostvox.io",
+		Domain:   cfg.DOMAIN,
 		Expires:  time.Now().Add(cfg.AccessTokenExp),
 	})
 	w.Header().Set("Authorization", "Bearer "+accessToken)

@@ -68,6 +68,7 @@ func main() {
 		AccessOrigin:      envConfig.AccessOrigin,
 		AwsS3Bucket:       envConfig.AWSBucket,
 		AwsRegion:         envConfig.AWSRegion,
+		DOMAIN:            envConfig.DOMAIN,
 	}
 
 	//Configure Cron

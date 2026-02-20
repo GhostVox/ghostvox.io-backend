@@ -36,6 +36,7 @@ type EnvConfig struct {
 	IPRateLimit           rate.Limit
 	IPRateBurst           int
 	IPLastSeen            time.Duration
+	DOMAIN                string
 }
 
 // LoadEnv loads environment variables and returns a config struct
@@ -93,6 +94,7 @@ func LoadEnv() (*EnvConfig, error) {
 	mode := getRequiredEnv("MODE")
 	accessOrigin := getRequiredEnv("ACCESS_ORIGIN")
 	cronCheckExpiredPolls := getRequiredEnv("CRON_CHECK_FOR_EXPIRED_POLLS")
+	DOMAIN := getRequiredEnv("DOMAIN")
 
 	// Parse durations
 	accessTokenExp, err := time.ParseDuration(accessTokenExpStr)
@@ -170,5 +172,6 @@ func LoadEnv() (*EnvConfig, error) {
 		IPRateLimit:           ipRateLimit,
 		IPRateBurst:           ipRateBurst,
 		IPLastSeen:            ipLastSeen,
+		DOMAIN:                DOMAIN,
 	}, nil
 }
