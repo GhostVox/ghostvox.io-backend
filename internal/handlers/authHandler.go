@@ -197,22 +197,36 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	// Get Refresh Token from Cookie
 	refreshToken, err := r.Cookie("refreshToken")
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid refresh token", err)
 		return
 	}
-
-	// Delete Refresh Token from Database
 	err = h.cfg.Queries.DeleteRefreshToken(r.Context(), refreshToken.Value)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), "Failed to delete refresh token", err)
 		return
 	}
-
-	// Clear Cookie
-	SetCookiesHelper(w, http.StatusOK, "", "", h.cfg)
+	// Explicitly delete cookies by setting MaxAge -1
+	http.SetCookie(w, &http.Cookie{
+		Name:     "refreshToken",
+		Value:    "",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteNoneMode,
+		Path:     "/",
+		Domain:   ".ghostvox.io",
+		MaxAge:   -1,
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:     "accessToken",
+		Value:    "",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteNoneMode,
+		Path:     "/",
+		Domain:   ".ghostvox.io",
+		MaxAge:   -1,
+	})
 	respondWithJSON(w, http.StatusOK, map[string]any{"msg": "User logged out successfully"})
-
 }

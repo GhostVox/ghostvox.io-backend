@@ -151,14 +151,14 @@ func (h *pollHandler) CreatePoll(w http.ResponseWriter, r *http.Request, claims 
 	}
 
 	// Check for profanity in title, description, and options
-	if !checkInputClean(newPoll.Title, h.filter, &w) {
+	if !checkInputClean(newPoll.Title, h.filter, w) {
 		return
 	}
-	if !checkInputClean(newPoll.Description, h.filter, &w) {
+	if !checkInputClean(newPoll.Description, h.filter, w) {
 		return
 	}
 	for _, option := range newPoll.Options {
-		if !checkInputClean(option.Name, h.filter, &w) {
+		if !checkInputClean(option.Name, h.filter, w) {
 			return
 		}
 	}
@@ -201,10 +201,10 @@ func (h *pollHandler) UpdatePoll(w http.ResponseWriter, r *http.Request, claims 
 		newPoll.Description = "No description provided."
 	}
 	// Validate inputs for profanity
-	if !checkInputClean(newPoll.Title, h.filter, &w) {
+	if !checkInputClean(newPoll.Title, h.filter, w) {
 		return
 	}
-	if !checkInputClean(newPoll.Description, h.filter, &w) {
+	if !checkInputClean(newPoll.Description, h.filter, w) {
 		return
 	}
 
@@ -242,7 +242,7 @@ func (h *pollHandler) UpdatePoll(w http.ResponseWriter, r *http.Request, claims 
 	respondWithJSON(w, http.StatusOK, pollRecord)
 }
 
-func (h *pollHandler) DeletePoll(w http.ResponseWriter, r *http.Request) {
+func (h *pollHandler) DeletePoll(w http.ResponseWriter, r *http.Request, claims *auth.CustomClaims) {
 	pollId := r.PathValue("pollId")
 	if pollId == "" {
 		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "PollID is required", nil)
@@ -252,6 +252,11 @@ func (h *pollHandler) DeletePoll(w http.ResponseWriter, r *http.Request) {
 	pollUUID, err := uuid.Parse(pollId)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest), "Invalid poll id in pathvalue", err)
+		return
+	}
+
+	if claims.Role != "admin" {
+		respondWithError(w, http.StatusForbidden, http.StatusText(http.StatusForbidden), "Forbidden", nil)
 		return
 	}
 
