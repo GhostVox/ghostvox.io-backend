@@ -1,4 +1,4 @@
-.env
+*.env
 /bin
 /internal/handlers/userHandler_test.go
 # Local HTTPS certificates
